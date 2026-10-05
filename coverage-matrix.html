@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coverage Matrix — Question Bank</title>
+<style>
+  :root{
+    --accent:#4f46e5; --accent-soft:#eef2ff; --ink:#1f2937; --muted:#6b7280;
+    --line:#e5e7eb; --bg:#f6f7fb; --card:#ffffff;
+    --ok-bg:#e8f5e9; --ok-fg:#2e7d32; --warn-bg:#fff8e1; --warn-fg:#b45309;
+    --bad-bg:#fdecea; --bad-fg:#c62828;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);
+       font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+       font-size:14px;line-height:1.45}
+  header{background:var(--card);border-bottom:1px solid var(--line);padding:18px 24px 0;position:sticky;top:0;z-index:50}
+  h1{margin:0 0 2px;font-size:20px}
+  .sub{color:var(--muted);margin:0 0 14px;font-size:13px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px}
+  .kpi{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 12px}
+  .kpi .v{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
+  .kpi .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  .kpi.bad .v{color:var(--bad-fg)} .kpi.warn .v{color:var(--warn-fg)} .kpi.ok .v{color:var(--ok-fg)}
+  nav{display:flex;gap:4px;border-bottom:none}
+  nav button{background:none;border:1px solid transparent;border-bottom:none;border-radius:8px 8px 0 0;
+    padding:8px 16px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer}
+  nav button.active{background:var(--bg);color:var(--accent);border-color:var(--line)}
+  .controls{display:flex;flex-wrap:wrap;align-items:center;gap:14px;padding:10px 0 12px;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--muted)}
+  .controls label{display:flex;align-items:center;gap:6px}
+  .controls input[type=number]{width:70px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;font:inherit}
+  .btn{background:var(--accent);border:none;color:#fff;border-radius:8px;padding:7px 14px;font:inherit;font-weight:600;cursor:pointer}
+  .btn.sec{background:#fff;color:var(--accent);border:1px solid var(--accent)}
+  .btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}
+  .src{margin-left:auto;background:var(--accent-soft);color:var(--accent);padding:3px 10px;border-radius:999px;font-weight:600}
+  main{padding:18px 24px 60px;max-width:1400px;margin:0 auto}
+  .tab{display:none} .tab.active{display:block}
+  h2{font-size:15px;margin:22px 0 8px}
+  h2:first-child{margin-top:0}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:16px;overflow:auto}
+  table.grid{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+  table.grid th,table.grid td{border:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:middle;white-space:nowrap}
+  table.grid th{background:#f9fafb;font-size:12px;position:sticky;top:0;z-index:5}
+  table.grid th.sortable{cursor:pointer;user-select:none}
+  table.grid th.sortable:hover{background:#eef2ff}
+  td.num,th.num{text-align:right}
+  .chip{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:700}
+  .chip.ok{background:var(--ok-bg);color:var(--ok-fg)}
+  .chip.warn{background:var(--warn-bg);color:var(--warn-fg)}
+  .chip.bad{background:var(--bad-bg);color:var(--bad-fg)}
+  .chip.info{background:var(--accent-soft);color:var(--accent)}
+  .bar{background:#eef0f4;border-radius:4px;height:10px;width:90px;display:inline-block;vertical-align:middle;overflow:hidden}
+  .bar>i{display:block;height:100%;background:var(--accent);border-radius:4px}
+  .bar>i.warn{background:#f59e0b} .bar>i.bad{background:#ef4444}
+  table.matrix{border-collapse:separate;border-spacing:0;font-variant-numeric:tabular-nums}
+  table.matrix th,table.matrix td{border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:5px 8px;text-align:center;font-size:12.5px;min-width:52px}
+  table.matrix thead th{background:#f9fafb;position:sticky;top:0;z-index:6}
+  table.matrix th.rowhead,table.matrix td.rowhead{position:sticky;left:0;background:#fff;text-align:left;min-width:220px;z-index:4;border-right:2px solid var(--line)}
+  table.matrix thead th.corner{z-index:7}
+  table.matrix td.mcell{cursor:pointer}
+  table.matrix td.mcell:hover{outline:2px solid var(--accent);outline-offset:-2px}
+  table.matrix td.zero{color:#c62828;background:#fdecea;font-weight:700}
+  table.matrix tfoot td{background:#f9fafb;font-weight:700}
+  .legend{display:flex;gap:14px;align-items:center;font-size:12px;color:var(--muted);margin:8px 0}
+  .legend i{display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid var(--line);vertical-align:-2px;margin-right:4px}
+  .toolbar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-bottom:10px;font-size:13px}
+  .toolbar select{padding:5px 8px;border:1px solid var(--line);border-radius:6px;font:inherit;background:#fff}
+  .chapter-row td{background:var(--accent-soft);font-weight:700}
+  .toggle{cursor:pointer;color:var(--accent);font-weight:700;margin-right:6px;user-select:none}
+  .gapcards{display:flex;flex-wrap:wrap;gap:10px}
+  .gapcard{border:1px solid #f3c1bc;background:var(--bad-bg);border-radius:10px;padding:10px 14px;min-width:180px}
+  .gapcard b{display:block;font-size:14px}
+  .gapcard span{font-size:12px;color:var(--muted)}
+  .combo{display:inline-block;border:1px solid var(--line);background:#fff;border-radius:6px;padding:3px 8px;margin:3px;font-size:12px}
+  .combo b{color:var(--bad-fg)}
+  textarea{width:100%;min-height:230px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;
+           border:1px solid var(--line);border-radius:8px;padding:10px;background:#fff;color:var(--ink)}
+  pre{background:#0f172a;color:#e2e8f0;border-radius:10px;padding:14px;overflow:auto;font-size:12px;line-height:1.5}
+  .hint{color:var(--muted);font-size:12.5px}
+  .msg{margin-top:8px;font-size:13px}
+  .msg.err{color:var(--bad-fg)} .msg.okmsg{color:var(--ok-fg)}
+  .gridcols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media (max-width:900px){.gridcols{grid-template-columns:1fr}}
+  .detail-title{font-weight:700;margin:14px 0 6px;font-size:13px}
+  @media print{
+    header nav,.controls,#tab-data{display:none!important}
+    .tab{display:block!important;page-break-after:always}
+    body{background:#fff}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Question Bank — Coverage Matrix</h1>
+  <p class="sub">Chapters × question type × difficulty × marks, with topic drill-down, quality flags and gap analysis.</p>
+  <div class="cards" id="cards"></div>
+  <nav id="tabs"></nav>
+  <div class="controls">
+    <label>Min questions / chapter <input type="number" id="chapterMin" min="0" value="30"></label>
+    <label>Target / cell (type × difficulty) <input type="number" id="cellTarget" min="0" value="3"></label>
+    <button class="btn ghost" id="exportBtn">Export CSV</button>
+    <span class="src" id="sourceLabel"></span>
+  </div>
+</header>
+
+<main>
+  <section id="tab-overview" class="tab"></section>
+  <section id="tab-matrix"   class="tab"></section>
+  <section id="tab-topics"  class="tab"></section>
+  <section id="tab-gaps"    class="tab"></section>
+  <section id="tab-data"    class="tab"></section>
+</main>
+
+<script id="logic">
+/* ============================================================
+   Coverage Matrix — pure logic (no DOM access; unit-testable)
+   ============================================================ */
+'use strict';
+
+var DIFF_ORDER = ['Easy', 'Medium', 'Hard'];
+
+var ALIASES = {
+  chapter_code: ['chapter_code','chaptercode','code','ch_code','chapter_no','chapter_number'],
+  chapter_name: ['chapter_name','chaptername','chapter','chapter_title'],
+  topic_name:   ['topic_name','topicname','topic','topic_title','subtopic'],
+  question_type:['question_type','questiontype','type','qtype','question_format','format'],
+  difficulty:   ['difficulty','level','difficulty_level','diff'],
+  marks:        ['marks','mark','weight','max_marks','points'],
+  count:        ['count','total','questions','num_questions','q_count','question_count','n'],
+  with_answer:  ['with_answer','with_answers','answered','answers','has_answer','answer_present'],
+  needs_review: ['needs_review','review','flag_review','to_review'],
+  with_diagram: ['with_diagram','diagrams','diagram','has_diagram'],
+  target:       ['target','goal','min_target','expected']
+};
+
+function normKey(k){ return String(k).trim().toLowerCase().replace(/[\s\-]+/g,'_'); }
+
+function mapKey(k){
+  var n = normKey(k);
+  for (var field in ALIASES){ if (ALIASES[field].indexOf(n) !== -1) return field; }
+  return null;
+}
+
+function toNum(v){
+  if (v === null || v === undefined || v === '') return 0;
+  var n = Number(String(v).replace(/,/g,''));
+  return isFinite(n) ? n : 0;
+}
+
+function titleCase(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
+
+function fmtMarks(m){
+  if (m === null || m === undefined || m === '') return '—';
+  var n = Number(m);
+  if (isFinite(n)) return String(parseFloat(n.toFixed(2)));
+  return String(m);
+}
+
+function normalizeRow(obj){
+  var out = {chapter_code:'', chapter_name:'', topic_name:'', question_type:'', difficulty:'',
+             marks:'', count:1, with_answer:0, needs_review:0, with_diagram:0, target:null};
+  for (var k in obj){
+    var f = mapKey(k);
+    if (!f) continue;
+    var v = obj[k];
+    if (f === 'count' || f === 'with_answer' || f === 'needs_review' || f === 'with_diagram'){
+      out[f] = toNum(v);
+    } else if (f === 'target'){
+      out[f] = (v === '' || v === null || v === undefined) ? null : toNum(v);
+    } else {
+      out[f] = String(v === null || v === undefined ? '' : v).trim();
+    }
+  }
+  if (out.difficulty) out.difficulty = titleCase(out.difficulty.toLowerCase());
+  if (out.marks !== '') out.marks = fmtMarks(out.marks);
+  if (!out.chapter_name) out.chapter_name = out.chapter_code;
+  if (!out.chapter_code) out.chapter_code = out.chapter_name;
+  if (!out.question_type) out.question_type = 'Unspecified';
+  if (!out.difficulty) out.difficulty = 'Unspecified';
+  if (!out.topic_name) out.topic_name = '(no topic)';
+  return out;
+}
+
+function normalizeRows(list){ return (list || []).map(normalizeRow); }
+
+function parseCSV(text){
+  var lines = text.split(/\r?\n/).filter(function(l){ return l.trim() !== ''; });
+  if (!lines.length) return [];
+  var header = lines[0];
+  var counts = {',':0, '\t':0, ';':0, '|':0};
+  for (var i = 0; i < header.length; i++){ if (counts[header[i]] !== undefined) counts[header[i]]++; }
+  var delim = ',', best = -1;
+  for (var d in counts){ if (counts[d] > best){ best = counts[d]; delim = d; } }
+  function splitLine(line){
+    var out = [], cur = '', inQ = false;
+    for (var j = 0; j < line.length; j++){
+      var c = line[j];
+      if (inQ){
+        if (c === '"'){ if (line[j+1] === '"'){ cur += '"'; j++; } else inQ = false; }
+        else cur += c;
+      } else {
+        if (c === '"') inQ = true;
+        else if (c === delim){ out.push(cur); cur = ''; }
+        else cur += c;
+      }
+    }
+    out.push(cur);
+    return out;
+  }
+  var headers = splitLine(lines[0]);
+  var rows = [];
+  for (var r = 1; r < lines.length; r++){
+    var cells = splitLine(lines[r]);
+    var obj = {};
+    for (var c2 = 0; c2 < headers.length; c2++) obj[headers[c2]] = cells[c2];
+    rows.push(obj);
+  }
+  return rows;
+}
+
+function parseInput(text){
+  var t = String(text || '').trim();
+  if (!t) return [];
+  if (t.charAt(0) === '[' || t.charAt(0) === '{'){
+    var data = JSON.parse(t);
+    if (!Array.isArray(data)){
+      if (data && Array.isArray(data.rows)) data = data.rows;
+      else data = [data];
+    }
+    return data;
+  }
+  return parseCSV(t);
+}
+
+function newBucket(){
+  return {total:0, with_answer:0, needs_review:0, with_diagram:0,
+          byDifficulty:{}, byType:{}, byMarks:{}};
+}
+function addToBucket(b, row){
+  b.total += row.count;
+  b.with_answer += row.with_answer;
+  b.needs_review += row.needs_review;
+  b.with_diagram += row.with_diagram;
+  b.byDifficulty[row.difficulty] = (b.byDifficulty[row.difficulty] || 0) + row.count;
+  b.byType[row.question_type] = (b.byType[row.question_type] || 0) + row.count;
+  var mk = row.marks === '' ? '—' : row.marks;
+  b.byMarks[mk] = (b.byMarks[mk] || 0) + row.count;
+}
+
+function sortDifficultyKeys(keys){
+  return keys.slice().sort(function(a, b){
+    var ia = DIFF_ORDER.indexOf(a), ib = DIFF_ORDER.indexOf(b);
+    if (ia !== -1 && ib !== -1) return ia - ib;
+    if (ia !== -1) return -1;
+    if (ib !== -1) return 1;
+    return a.localeCompare(b);
+  });
+}
+
+function sortMarksKeys(keys){
+  return keys.slice().sort(function(a, b){
+    var na = parseFloat(a), nb = parseFloat(b);
+    if (!isNaN(na) && !isNaN(nb)) return na - nb;
+    if (!isNaN(na)) return -1;
+    if (!isNaN(nb)) return 1;
+    return a.localeCompare(b);
+  });
+}
+
+function aggregate(rows){
+  var chapters = {}, chapterOrder = [], topics = {};
+  var types = {}, diffs = {}, marks = {};
+  rows.forEach(function(r){
+    var ck = r.chapter_code || r.chapter_name;
+    if (!chapters[ck]){
+      chapters[ck] = Object.assign({key:ck, code:r.chapter_code, name:r.chapter_name}, newBucket());
+      chapterOrder.push(ck);
+    }
+    addToBucket(chapters[ck], r);
+    types[r.question_type] = 1;
+    diffs[r.difficulty] = 1;
+    marks[r.marks === '' ? '—' : r.marks] = 1;
+    var tk = ck + '\u0000' + r.topic_name;
+    if (!topics[tk]){
+      topics[tk] = Object.assign({key:tk, chapterKey:ck, chapterCode:chapters[ck].code,
+                                  chapterName:chapters[ck].name, name:r.topic_name}, newBucket());
+    }
+    addToBucket(topics[tk], r);
+  });
+  chapterOrder.sort(function(a,b){
+    return chapters[a].code.localeCompare(chapters[b].code, undefined, {numeric:true});
+  });
+  var chapterList = chapterOrder.map(function(k){ return chapters[k]; });
+  var topicList = Object.keys(topics).map(function(k){ return topics[k]; });
+  topicList.sort(function(a,b){
+    var ca = chapters[a.chapterKey].code.localeCompare(chapters[b.chapterKey].code, undefined, {numeric:true});
+    if (ca !== 0) return ca;
+    return a.name.localeCompare(b.name);
+  });
+  return {
+    chapters: chapterList,
+    topics: topicList,
+    types: Object.keys(types).sort(),
+    difficulties: sortDifficultyKeys(Object.keys(diffs)),
+    marksList: sortMarksKeys(Object.keys(marks)),
+    total: rows.reduce(function(s,r){ return s + r.count; }, 0),
+    withAnswer: rows.reduce(function(s,r){ return s + r.with_answer; }, 0),
+    needsReview: rows.reduce(function(s,r){ return s + r.needs_review; }, 0),
+    withDiagram: rows.reduce(function(s,r){ return s + r.with_diagram; }, 0)
+  };
+}
+
+function pivotRowKey(row, rowDim){
+  if (rowDim === 'topic') return row.chapter_code + '\u0000' + row.topic_name;
+  return row.chapter_code;
+}
+function pivotColKey(row, colDim){
+  return colDim.split('|').map(function(d){
+    if (d === 'marks') return row.marks === '' ? '—' : row.marks;
+    return row[d];
+  }).join(' · ');
+}
+function colSorter(colDim){
+  var dims = colDim.split('|');
+  if (dims.length === 1 && dims[0] === 'difficulty') return sortDifficultyKeys;
+  if (dims.length === 1 && dims[0] === 'marks') return sortMarksKeys;
+  return function(keys){ return keys.slice().sort(); };
+}
+
+function buildPivot(rows, rowDim, colDim){
+  var cell = {}, rowInfo = {}, colSet = {};
+  rows.forEach(function(r){
+    var rk = pivotRowKey(r, rowDim), ck = pivotColKey(r, colDim);
+    if (!cell[rk]) cell[rk] = {};
+    cell[rk][ck] = (cell[rk][ck] || 0) + r.count;
+    colSet[ck] = 1;
+    if (!rowInfo[rk]){
+      rowInfo[rk] = {key:rk};
+      if (rowDim === 'topic'){
+        rowInfo[rk].label = r.topic_name;
+        rowInfo[rk].groupLabel = r.chapter_code + ' — ' + r.chapter_name;
+        rowInfo[rk].sortKey = r.chapter_code + '\u0000' + r.topic_name;
+      } else {
+        rowInfo[rk].label = r.chapter_code + ' — ' + r.chapter_name;
+        rowInfo[rk].sortKey = r.chapter_code;
+      }
+    }
+  });
+  var cols = colSorter(colDim)(Object.keys(colSet));
+  var list = Object.keys(rowInfo).map(function(k){
+    var o = rowInfo[k];
+    o.cells = cell[k] || {};
+    o.total = cols.reduce(function(s,c){ return s + (o.cells[c] || 0); }, 0);
+    return o;
+  });
+  list.sort(function(a,b){ return a.sortKey.localeCompare(b.sortKey, undefined, {numeric:true}); });
+  var grand = list.reduce(function(s,o){ return s + o.total; }, 0);
+  return {rows:list, cols:cols, grand:grand, rowDim:rowDim, colDim:colDim};
+}
+
+function findGaps(rows, agg, opts){
+  var chapterMin = opts.chapterMin, cellTarget = opts.cellTarget;
+  var cc = {};
+  rows.forEach(function(r){
+    var k = r.chapter_code + '\u0000' + r.question_type + '\u0000' + r.difficulty;
+    cc[k] = (cc[k] || 0) + r.count;
+  });
+  var below = [], missing = [];
+  agg.chapters.forEach(function(ch){
+    agg.types.forEach(function(t){
+      agg.difficulties.forEach(function(d){
+        var n = cc[ch.code + '\u0000' + t + '\u0000' + d] || 0;
+        if (n === 0) missing.push({chapter:ch.code, chapterName:ch.name, type:t, difficulty:d, count:0, target:cellTarget});
+        else if (n < cellTarget) below.push({chapter:ch.code, chapterName:ch.name, type:t, difficulty:d, count:n, target:cellTarget});
+      });
+    });
+  });
+  return {
+    below: below,
+    missing: missing,
+    emptyChapters: agg.chapters.filter(function(c){ return c.total === 0; }),
+    emptyTopics: agg.topics.filter(function(t){ return t.total === 0; }),
+    lowChapters: agg.chapters.filter(function(c){ return c.total > 0 && c.total < chapterMin; })
+  };
+}
+
+/* ---------- deterministic sample data (demo) ---------- */
+function mulberry32(seed){
+  var t = seed >>> 0;
+  return function(){
+    t += 0x6D2B79F5;
+    var x = t;
+    x = Math.imul(x ^ (x >>> 15), x | 1);
+    x ^= x + Math.imul(x ^ (x >>> 7), x | 61);
+    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function makeSampleData(){
+  var rnd = mulberry32(20261005);
+  var chapters = [
+    {code:'CH01', name:'Number Systems',        topics:['Real Numbers','Laws of Exponents','Surds & Simplification']},
+    {code:'CH02', name:'Polynomials',           topics:['Zeros of a Polynomial','Division Algorithm','Factor Theorem']},
+    {code:'CH03', name:'Linear Equations',      topics:['Pairs of Linear Equations','Word Problems','Graphical Method']},
+    {code:'CH04', name:'Quadratic Equations',   topics:['Factorisation','Quadratic Formula','Nature of Roots','Word Problems']},
+    {code:'CH05', name:'Arithmetic Progressions',topics:['nth Term','Sum of n Terms','Word Problems']},
+    {code:'CH06', name:'Triangles',             topics:['Similarity Criteria','Basic Proportionality Theorem','Pythagoras Theorem']},
+    {code:'CH07', name:'Coordinate Geometry',   topics:['Distance Formula','Section Formula','Area of Triangle']},
+    {code:'CH08', name:'Trigonometry',          topics:['Trigonometric Ratios','Identities','Heights & Distances']},
+    {code:'CH09', name:'Statistics',            topics:['Mean of Grouped Data','Median & Mode','Ogive']},
+    {code:'CH10', name:'Vectors & 3D Geometry', topics:['Vector Basics','Direction Cosines']}
+  ];
+  var types = [
+    {name:'MCQ',          marks:[1]},
+    {name:'Short Answer', marks:[2,3]},
+    {name:'Long Answer',  marks:[5]},
+    {name:'Case-Based',   marks:[4]}
+  ];
+  var diffs = ['Easy','Medium','Hard'];
+  var rows = [];
+  chapters.forEach(function(ch, ci){
+    var sparse = (ci === 8);   // CH09 Statistics: deliberately thin
+    var empty  = (ci === 9);   // CH10: deliberately no questions yet
+    ch.topics.forEach(function(topic){
+      types.forEach(function(t){
+        t.marks.forEach(function(m){
+          diffs.forEach(function(d){
+            var count;
+            if (empty) count = 0;
+            else if (sparse) count = rnd() < 0.6 ? 0 : Math.floor(rnd()*3) + 1;
+            else count = rnd() < 0.12 ? 0 : Math.floor(rnd() * (d==='Easy' ? 10 : d==='Medium' ? 7 : 4)) + 1;
+            var withAnswer = Math.min(count, Math.round(count * (0.7 + rnd()*0.3)));
+            var needsReview = count ? Math.floor(rnd() * Math.max(1, Math.round(count*0.25))) : 0;
+            var withDiagram = (t.name==='MCQ' || t.name==='Case-Based')
+              ? Math.floor(rnd() * (count > 2 ? 3 : 1))
+              : (rnd() < 0.3 ? 1 : 0);
+            withDiagram = Math.min(withDiagram, count);
+            rows.push({chapter_code:ch.code, chapter_name:ch.name, topic_name:topic,
+                       question_type:t.name, difficulty:d, marks:m, count:count,
+                       with_answer:withAnswer, needs_review:needsReview, with_diagram:withDiagram});
+          });
+        });
+      });
+    });
+  });
+  return rows;
+}
+</script>
+
+<script id="ui">
+/* ============================================================
+   Coverage Matrix — UI layer
+   ============================================================ */
+'use strict';
+(function(){
+
+  var state = {
+    rows: [], source: '', agg: null, active: 'overview',
+    pivot: {rowDim:'chapter', colDim:'question_type|difficulty'},
+    opts: {chapterMin:30, cellTarget:3},
+    sort: {}, collapsed: {}, selectedCell: null
+  };
+
+  var TABS = [
+    ['overview','Overview'],['matrix','Matrix'],['topics','Topics'],['gaps','Gaps'],['data','Data']
+  ];
+
+  function $(id){ return document.getElementById(id); }
+  function esc(s){
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+                    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function mix(a,b,t){
+    return [Math.round(a[0]+(b[0]-a[0])*t), Math.round(a[1]+(b[1]-a[1])*t), Math.round(a[2]+(b[2]-a[2])*t)];
+  }
+  function heat(n, target){
+    if (!n) return '#fdecea';
+    var t = Math.min(n / Math.max(target,1), 1.5) / 1.5;
+    var c = t < 0.5 ? mix([255,205,178],[255,245,157], t/0.5)
+                    : mix([255,245,157],[200,230,201], (t-0.5)/0.5);
+    return 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')';
+  }
+  function pct(a,b){ return b ? Math.round(100*a/b) + '%' : '—'; }
+  function distText(map, order){
+    var keys = order && order.length
+      ? order.filter(function(k){ return map[k]; })
+      : Object.keys(map);
+    return keys.map(function(k){ return k + '×' + map[k]; }).join(' · ') || '—';
+  }
+
+  /* ---------------- KPI cards ---------------- */
+  function renderCards(){
+    var a = state.agg;
+    var gaps = findGaps(state.rows, a, state.opts);
+    var defs = [
+      ['Questions', a.total, ''],
+      ['Chapters', a.chapters.length, ''],
+      ['Topics', a.topics.length, ''],
+      ['Empty chapters', gaps.emptyChapters.length, gaps.emptyChapters.length ? 'bad' : 'ok'],
+      ['Empty topics', gaps.emptyTopics.length, gaps.emptyTopics.length ? 'bad' : 'ok'],
+      ['Chapters below min', gaps.lowChapters.length, gaps.lowChapters.length ? 'warn' : 'ok'],
+      ['Answers present', pct(a.withAnswer, a.total), ''],
+      ['Needs review', a.needsReview, a.needsReview ? 'warn' : 'ok']
+    ];
+    $('cards').innerHTML = defs.map(function(d){
+      return '<div class="kpi ' + d[2] + '"><div class="v">' + esc(d[1]) + '</div><div class="l">' + esc(d[0]) + '</div></div>';
+    }).join('');
+  }
+
+  /* ---------------- generic sortable table ---------------- */
+  function buildTable(tableId, cols, rows, opts){
+    opts = opts || {};
+    if (!state.sort[tableId]) state.sort[tableId] = {key: opts.defaultSort || null, dir: -1};
+    var st = state.sort[tableId];
+    if (st.key){
+      rows = rows.slice().sort(function(x,y){
+        var a = x[st.key], b = y[st.key];
+        if (typeof a === 'number' && typeof b === 'number') return (a-b)*st.dir;
+        return String(a).localeCompare(String(b), undefined, {numeric:true}) * st.dir;
+      });
+    }
+    var h = '<table class="grid" data-table="' + tableId + '"><thead><tr>';
+    cols.forEach(function(c){
+      var arrow = st.key === c.key ? (st.dir === 1 ? ' ▲' : ' ▼') : '';
+      h += '<th data-key="' + c.key + '" class="sortable ' + (c.cls||'') + '">' + esc(c.label) + arrow + '</th>';
+    });
+    h += '</tr></thead><tbody>';
+    rows.forEach(function(r){
+      h += '<tr' + (opts.rowClass ? ' class="' + opts.rowClass(r) + '"' : '') + '>';
+      cols.forEach(function(c){
+        var v = c.render ? c.render(r) : esc(r[c.key]);
+        h += '<td class="' + (c.cls||'') + '">' + v + '</td>';
+      });
+      h += '</tr>';
+    });
+    h += '</tbody></table>';
+    return h;
+  }
+
+  function wireSort(container, rerender){
+    container.querySelectorAll('th.sortable').forEach(function(th){
+      th.addEventListener('click', function(){
+        var tbl = th.closest('table').getAttribute('data-table');
+        var st = state.sort[tbl];
+        var k = th.getAttribute('data-key');
+        if (st.key === k) st.dir = -st.dir; else { st.key = k; st.dir = -1; }
+        rerender();
+      });
+    });
+  }
+
+  function statusChip(ch){
+    if (ch.total === 0) return '<span class="chip bad">Empty</span>';
+    if (ch.total < state.opts.chapterMin) return '<span class="chip warn">Below min</span>';
+    return '<span class="chip ok">OK</span>';
+  }
+  function barHtml(total){
+    var w = Math.min(100, Math.round(100 * total / Math.max(state.opts.chapterMin,1)));
+    var cls = total === 0 ? 'bad' : (total < state.opts.chapterMin ? 'warn' : '');
+    return '<span class="bar"><i class="' + cls + '" style="width:' + w + '%"></i></span> <b>' + total + '</b>';
+  }
+
+  /* ---------------- Overview tab ---------------- */
+  function overviewRows(){
+    return state.agg.chapters.map(function(ch){
+      var r = {
+        chapter: ch.code + ' — ' + ch.name, total: ch.total,
+        answers_pct: ch.total ? Math.round(100*ch.with_answer/ch.total) : 0,
+        needs_review: ch.needs_review, diagrams: ch.with_diagram,
+        marks: distText(ch.byMarks, state.agg.marksList), _raw: ch
+      };
+      state.agg.difficulties.forEach(function(d){ r['d_' + d] = ch.byDifficulty[d] || 0; });
+      state.agg.types.forEach(function(t){ r['t_' + t] = ch.byType[t] || 0; });
+      return r;
+    });
+  }
+  function overviewCols(){
+    var cols = [{label:'Chapter', key:'chapter'}];
+    cols.push({label:'Questions', key:'total', cls:'num', render:function(r){ return barHtml(r.total); }});
+    state.agg.difficulties.forEach(function(d){
+      cols.push({label:d, key:'d_' + d, cls:'num'});
+    });
+    state.agg.types.forEach(function(t){
+      cols.push({label:t, key:'t_' + t, cls:'num'});
+    });
+    cols.push({label:'Marks mix', key:'marks'});
+    cols.push({label:'Answers %', key:'answers_pct', cls:'num', render:function(r){ return r.total ? r.answers_pct + '%' : '—'; }});
+    cols.push({label:'Review', key:'needs_review', cls:'num'});
+    cols.push({label:'Diagrams', key:'diagrams', cls:'num'});
+    cols.push({label:'Status', key:'total', cls:'', render:function(r){ return statusChip(r._raw); }});
+    return cols;
+  }
+  function renderOverview(){
+    var el = $('tab-overview');
+    el.innerHTML = '<h2>Chapter summary</h2><div class="panel">' +
+      buildTable('overview', overviewCols(), overviewRows(), {defaultSort:'total'}) +
+      '</div><p class="hint">Click any column header to sort. "Marks mix" shows question counts per marks value, e.g. 1×42 · 2×25 · 5×10.</p>';
+    wireSort(el, renderOverview);
+  }
+
+  /* ---------------- Matrix tab ---------------- */
+  function renderMatrix(){
+    var el = $('tab-matrix');
+    var pv = buildPivot(state.rows, state.pivot.rowDim, state.pivot.colDim);
+    var rowDimSel = '<select id="rowDim">' +
+      ['chapter','topic'].map(function(v){
+        return '<option value="' + v + '"' + (state.pivot.rowDim === v ? ' selected' : '') + '>' +
+               (v === 'chapter' ? 'Chapter' : 'Topic (within chapter)') + '</option>';
+      }).join('') + '</select>';
+    var colOpts = [
+      ['question_type|difficulty','Type × Difficulty'],
+      ['question_type','Question type'],
+      ['difficulty','Difficulty'],
+      ['marks','Marks'],
+      ['question_type|marks','Type × Marks'],
+      ['difficulty|marks','Difficulty × Marks']
+    ];
+    var colDimSel = '<select id="colDim">' + colOpts.map(function(o){
+      return '<option value="' + o[0] + '"' + (state.pivot.colDim === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
+    }).join('') + '</select>';
+
+    var h = '<h2>Cross-tab</h2><div class="panel">' +
+      '<div class="toolbar">Rows: ' + rowDimSel + ' Columns: ' + colDimSel + '</div>' +
+      '<div class="legend">' +
+        '<span><i style="background:#fdecea"></i>0 — missing</span>' +
+        '<span><i style="background:rgb(255,225,168)"></i>below target (' + state.opts.cellTarget + ')</span>' +
+        '<span><i style="background:rgb(200,230,201)"></i>at / above target</span>' +
+        '<span class="hint">Click a cell for its topic-level breakdown</span>' +
+      '</div>';
+
+    h += '<table class="matrix"><thead><tr><th class="rowhead corner">' +
+         (state.pivot.rowDim === 'chapter' ? 'Chapter' : 'Topic') + '</th>';
+    pv.cols.forEach(function(c){ h += '<th>' + esc(c) + '</th>'; });
+    h += '<th>Total</th></tr></thead><tbody>';
+    pv.rows.forEach(function(r){
+      h += '<tr><td class="rowhead">' + esc(r.label) +
+           (state.pivot.rowDim === 'topic' ? ' <span class="hint">(' + esc(r.groupLabel) + ')</span>' : '') + '</td>';
+      pv.cols.forEach(function(c){
+        var n = r.cells[c] || 0;
+        h += '<td class="mcell' + (n === 0 ? ' zero' : '') + '" data-r="' + esc(r.key) + '" data-c="' + esc(c) +
+             '" style="background:' + heat(n, state.opts.cellTarget) + '" title="' + esc(r.label + ' × ' + c + ': ' + n) + '">' +
+             (n || '–') + '</td>';
+      });
+      h += '<td><b>' + r.total + '</b></td></tr>';
+    });
+    h += '</tbody><tfoot><tr><td class="rowhead">Total</td>';
+    pv.cols.forEach(function(c){
+      var s = pv.rows.reduce(function(acc,r){ return acc + (r.cells[c] || 0); }, 0);
+      h += '<td>' + s + '</td>';
+    });
+    h += '<td>' + pv.grand + '</td></tr></tfoot></table><div id="matrixDetail"></div></div>';
+    el.innerHTML = h;
+
+    $('rowDim').addEventListener('change', function(){ state.pivot.rowDim = this.value; state.selectedCell = null; renderMatrix(); });
+    $('colDim').addEventListener('change', function(){ state.pivot.colDim = this.value; state.selectedCell = null; renderMatrix(); });
+    el.querySelectorAll('td.mcell').forEach(function(td){
+      td.addEventListener('click', function(){
+        state.selectedCell = {r: td.getAttribute('data-r'), c: td.getAttribute('data-c')};
+        showCellDetail(pv);
+      });
+    });
+    if (state.selectedCell) showCellDetail(pv);
+  }
+
+  function showCellDetail(pv){
+    var sel = state.selectedCell;
+    if (!sel) return;
+    var matches = state.rows.filter(function(r){
+      return pivotRowKey(r, pv.rowDim) === sel.r && pivotColKey(r, pv.colDim) === sel.c;
+    });
+    var label = sel.r.split('\u0000').join(' › ') + '  ×  ' + sel.c;
+    var h = '<div class="detail-title">Breakdown — ' + esc(label) + '</div>';
+    if (!matches.length || matches.every(function(m){ return m.count === 0; })){
+      h += '<p class="hint">No questions in this cell.</p>';
+    } else {
+      h += '<table class="grid"><thead><tr><th>Topic</th><th>Marks</th><th class="num">Count</th>' +
+           '<th class="num">With answer</th><th class="num">Needs review</th><th class="num">With diagram</th></tr></thead><tbody>';
+      matches.forEach(function(m){
+        h += '<tr><td>' + esc(m.topic_name) + '</td><td>' + esc(m.marks === '' ? '—' : m.marks) + '</td>' +
+             '<td class="num">' + m.count + '</td><td class="num">' + m.with_answer + '</td>' +
+             '<td class="num">' + m.needs_review + '</td><td class="num">' + m.with_diagram + '</td></tr>';
+      });
+      h += '</tbody></table>';
+    }
+    var d = $('matrixDetail');
+    if (d) d.innerHTML = h;
+  }
+
+  /* ---------------- Topics tab ---------------- */
+  function renderTopics(){
+    var el = $('tab-topics');
+    var a = state.agg;
+    var h = '<h2>Topic-level counts</h2>' +
+      '<div class="toolbar"><button class="btn ghost" id="expandAll">Expand all</button>' +
+      '<button class="btn ghost" id="collapseAll">Collapse all</button></div><div class="panel">';
+    a.chapters.forEach(function(ch){
+      var open = !state.collapsed[ch.code];
+      h += '<table class="grid" style="margin-bottom:14px"><thead><tr>' +
+        '<th style="min-width:260px">Topic</th><th class="num">Questions</th>';
+      a.difficulties.forEach(function(d){ h += '<th class="num">' + esc(d) + '</th>'; });
+      a.types.forEach(function(t){ h += '<th class="num">' + esc(t) + '</th>'; });
+      h += '<th class="num">Answers %</th><th class="num">Review</th><th>Status</th></tr></thead><tbody>';
+      h += '<tr class="chapter-row"><td><span class="toggle" data-ch="' + esc(ch.code) + '">' + (open ? '▾' : '▸') + '</span>' +
+           esc(ch.code + ' — ' + ch.name) + '</td><td class="num">' + ch.total + '</td>';
+      a.difficulties.forEach(function(d){ h += '<td class="num">' + (ch.byDifficulty[d] || 0) + '</td>'; });
+      a.types.forEach(function(t){ h += '<td class="num">' + (ch.byType[t] || 0) + '</td>'; });
+      h += '<td class="num">' + (ch.total ? Math.round(100*ch.with_answer/ch.total) + '%' : '—') + '</td>' +
+           '<td class="num">' + ch.needs_review + '</td><td>' + statusChip(ch) + '</td></tr>';
+      if (open){
+        a.topics.filter(function(t){ return t.chapterKey === ch.key; }).forEach(function(t){
+          h += '<tr><td style="padding-left:28px">' + esc(t.name) + '</td><td class="num">' + t.total + '</td>';
+          a.difficulties.forEach(function(d){ h += '<td class="num">' + (t.byDifficulty[d] || 0) + '</td>'; });
+          a.types.forEach(function(tp){ h += '<td class="num">' + (t.byType[tp] || 0) + '</td>'; });
+          h += '<td class="num">' + (t.total ? Math.round(100*t.with_answer/t.total) + '%' : '—') + '</td>' +
+               '<td class="num">' + t.needs_review + '</td><td>' +
+               (t.total === 0 ? '<span class="chip bad">Empty</span>' : '') + '</td></tr>';
+        });
+      }
+      h += '</tbody></table>';
+    });
+    h += '</div>';
+    el.innerHTML = h;
+    el.querySelectorAll('.toggle').forEach(function(s){
+      s.addEventListener('click', function(){
+        var code = s.getAttribute('data-ch');
+        state.collapsed[code] = !state.collapsed[code];
+        renderTopics();
+      });
+    });
+    $('expandAll').addEventListener('click', function(){ state.collapsed = {}; renderTopics(); });
+    $('collapseAll').addEventListener('click', function(){
+      state.agg.chapters.forEach(function(c){ state.collapsed[c.code] = true; });
+      renderTopics();
+    });
+  }
+
+  /* ---------------- Gaps tab ---------------- */
+  function renderGaps(){
+    var el = $('tab-gaps');
+    var g = findGaps(state.rows, state.agg, state.opts);
+    var h = '<h2>Gap analysis</h2>' +
+      '<div class="panel"><div class="gapcards">' +
+      (g.emptyChapters.length
+        ? g.emptyChapters.map(function(c){
+            return '<div class="gapcard"><b>' + esc(c.code) + '</b><span>' + esc(c.name) + ' — 0 questions</span></div>';
+          }).join('')
+        : '<span class="chip ok">No empty chapters</span>') +
+      '</div></div>';
+
+    h += '<h2>Chapters below minimum (' + state.opts.chapterMin + ')</h2><div class="panel">' +
+      (g.lowChapters.length
+        ? buildTable('gapsLow', [
+            {label:'Chapter', key:'chapter'},
+            {label:'Questions', key:'total', cls:'num'},
+            {label:'Minimum', key:'min', cls:'num'},
+            {label:'Shortfall', key:'short', cls:'num'}
+          ], g.lowChapters.map(function(c){
+            return {chapter:c.code + ' — ' + c.name, total:c.total, min:state.opts.chapterMin,
+                    short:state.opts.chapterMin - c.total};
+          }), {defaultSort:'short'})
+        : '<span class="chip ok">All chapters meet the minimum</span>') + '</div>';
+
+    h += '<h2>Empty topics</h2><div class="panel">' +
+      (g.emptyTopics.length
+        ? buildTable('gapsTopics', [
+            {label:'Chapter', key:'chapter'}, {label:'Topic', key:'topic'}
+          ], g.emptyTopics.map(function(t){
+            return {chapter:t.chapterCode + ' — ' + t.chapterName, topic:t.name};
+          }))
+        : '<span class="chip ok">No empty topics</span>') + '</div>';
+
+    h += '<h2>Cells below target (' + state.opts.cellTarget + ' per type × difficulty)</h2><div class="panel">' +
+      (g.below.length
+        ? buildTable('gapsBelow', [
+            {label:'Chapter', key:'chapter'}, {label:'Type', key:'type'},
+            {label:'Difficulty', key:'difficulty'}, {label:'Actual', key:'count', cls:'num'},
+            {label:'Target', key:'target', cls:'num'}, {label:'Shortfall', key:'short', cls:'num'}
+          ], g.below.map(function(b){
+            return {chapter:b.chapter + ' — ' + b.chapterName, type:b.type, difficulty:b.difficulty,
+                    count:b.count, target:b.target, short:b.target - b.count};
+          }), {defaultSort:'count'})
+        : '<span class="chip ok">No cells below target</span>') + '</div>';
+
+    h += '<h2>Missing combinations (0 questions for a type × difficulty)</h2><div class="panel">';
+    if (g.missing.length){
+      var byCh = {};
+      g.missing.forEach(function(m){ (byCh[m.chapter] = byCh[m.chapter] || {name:m.chapterName, items:[]}).items.push(m); });
+      Object.keys(byCh).forEach(function(code){
+        h += '<p style="margin:10px 0 2px"><b>' + esc(code + ' — ' + byCh[code].name) + '</b></p><div>';
+        byCh[code].items.forEach(function(m){
+          h += '<span class="combo">' + esc(m.type) + ' · <b>' + esc(m.difficulty) + '</b></span>';
+        });
+        h += '</div>';
+      });
+    } else {
+      h += '<span class="chip ok">No missing combinations</span>';
+    }
+    h += '</div>';
+    el.innerHTML = h;
+    wireSort(el, renderGaps);
+  }
+
+  /* ---------------- Data tab ---------------- */
+  var SQL_SNIPPET =
+"-- Cell-level export for this page — question_versions has every dimension,\n" +
+"-- so no joins are needed. (This is the ?view=cells query in the n8n\n" +
+"-- workflow mytst-coverage-backend.n8n.json.)\n" +
+"-- Labels to check first: run ?view=health to see your real status /\n" +
+"-- question_type / difficulty values and edit the filters to match.\n" +
+"SELECT board, class, subject_code, chapter_code, chapter, topic,\n" +
+"       question_type, marks, difficulty,\n" +
+"       count(*)::int AS count,\n" +
+"       count(*) FILTER (WHERE answer IS NOT NULL AND answer <> '')::int AS with_answer,\n" +
+"       count(*) FILTER (WHERE times_used = 0)::int AS unused,\n" +
+"       count(*) FILTER (WHERE status = 'valid'\n" +
+"                         AND answer IS NOT NULL AND answer <> '')::int AS usable\n" +
+"FROM question_versions\n" +
+"GROUP BY board, class, subject_code, chapter_code, chapter, topic,\n" +
+"         question_type, marks, difficulty\n" +
+"ORDER BY chapter_code, topic, question_type, marks, difficulty;";
+
+  function renderData(){
+    var el = $('tab-data');
+    el.innerHTML =
+      '<h2>Load your own data</h2>' +
+      '<div class="panel">' +
+        '<div class="toolbar" style="margin-bottom:10px">' +
+          '<label style="display:flex;align-items:center;gap:6px">n8n endpoint ' +
+          '<input type="text" id="apiUrl" style="width:400px;padding:5px 8px;border:1px solid var(--line);border-radius:6px;font:inherit" ' +
+          'placeholder="http://localhost:5678/webhook/mytst-coverage?view=cells"></label>' +
+          '<button class="btn" id="loadApi">Load from n8n</button>' +
+          '<span class="hint">workflow: mytst-coverage-backend.n8n.json (CORS is enabled in its response headers)</span>' +
+        '</div>' +
+        '<p class="hint">…or paste the query output as <b>CSV</b> (with header row) or <b>JSON</b> (array of objects — e.g. straight from n8n / pgAdmin / DBeaver "Copy as JSON") and click <b>Load pasted data</b>.</p>' +
+        '<textarea id="pasteBox" placeholder="chapter_code,chapter_name,topic_name,question_type,difficulty,marks,count,with_answer,needs_review,with_diagram&#10;CH01,Number Systems,Real Numbers,MCQ,Easy,1,12,10,1,2"></textarea>' +
+        '<div class="toolbar" style="margin-top:10px">' +
+          '<button class="btn" id="loadPaste">Load pasted data</button>' +
+          '<button class="btn sec" id="loadSample">Load sample data</button>' +
+        '</div>' +
+        '<div class="msg" id="dataMsg"></div>' +
+      '</div>' +
+      '<div class="gridcols">' +
+        '<div class="panel"><h2 style="margin-top:0">Expected columns</h2>' +
+          '<table class="grid"><thead><tr><th>Column</th><th>Required</th><th>Notes</th></tr></thead><tbody>' +
+          '<tr><td>chapter_code</td><td>yes</td><td>row identity; falls back to chapter_name</td></tr>' +
+          '<tr><td>chapter_name</td><td>yes</td><td></td></tr>' +
+          '<tr><td>topic_name</td><td>no</td><td>enables topic drill-down</td></tr>' +
+          '<tr><td>question_type</td><td>no</td><td>MCQ / Short / Long / Case-Based …</td></tr>' +
+          '<tr><td>difficulty</td><td>no</td><td>Easy / Medium / Hard (any labels)</td></tr>' +
+          '<tr><td>marks</td><td>no</td><td>numeric preferred</td></tr>' +
+          '<tr><td>count</td><td>no</td><td>questions in the cell; defaults to 1 if omitted (question-level rows)</td></tr>' +
+          '<tr><td>with_answer</td><td>no</td><td>quality flag</td></tr>' +
+          '<tr><td>needs_review</td><td>no</td><td>quality flag</td></tr>' +
+          '<tr><td>with_diagram</td><td>no</td><td>quality flag</td></tr>' +
+          '</tbody></table>' +
+          '<p class="hint">Common aliases are auto-detected (type/qtype, level, questions/total, answered …). Rows with count = 0 are kept — they show up as gaps.</p>' +
+        '</div>' +
+        '<div class="panel"><h2 style="margin-top:0">Coverage query (draft)</h2>' +
+          '<pre id="sqlPre">' + esc(SQL_SNIPPET) + '</pre>' +
+          '<button class="btn ghost" id="copySql">Copy SQL</button>' +
+          '<p class="hint">Placeholders marked &lt;&lt;…&gt;&gt; still need your real column names — see coverage_queries.sql.</p>' +
+        '</div>' +
+      '</div>';
+
+    $('loadPaste').addEventListener('click', function(){
+      var msg = $('dataMsg');
+      try {
+        var raw = parseInput($('pasteBox').value);
+        if (!raw.length){ msg.className = 'msg err'; msg.textContent = 'Nothing to parse — paste CSV or JSON first.'; return; }
+        loadData(raw, 'pasted data');   // re-renders the Data tab → old msg node is detached
+        var ok2 = $('dataMsg');         // re-query the fresh node
+        ok2.className = 'msg okmsg';
+        ok2.textContent = 'Loaded ' + raw.length + ' rows → ' + state.agg.chapters.length + ' chapters, ' + state.agg.total + ' questions.';
+      } catch (e){
+        msg.className = 'msg err';
+        msg.textContent = 'Parse error: ' + e.message;
+      }
+    });
+    $('loadApi').addEventListener('click', function(){
+      var url = $('apiUrl').value.trim();
+      var msg = $('dataMsg');
+      if (!url){ msg.className = 'msg err'; msg.textContent = 'Enter the n8n webhook URL first.'; return; }
+      msg.className = 'msg'; msg.textContent = 'Loading from ' + url + ' …';
+      fetch(url).then(function(r){
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      }).then(function(j){
+        var rows = Array.isArray(j) ? j
+          : (j && j.data && Array.isArray(j.data.cells)) ? j.data.cells
+          : (j && Array.isArray(j.data)) ? j.data
+          : null;
+        if (!rows) throw new Error('expected an array or {data:{cells:[…]}} — use ?view=cells');
+        loadData(rows, 'n8n API');   // re-renders this tab → re-query the msg node
+        var ok2 = $('dataMsg');
+        ok2.className = 'msg okmsg';
+        ok2.textContent = 'Loaded ' + rows.length + ' cell rows → ' + state.agg.chapters.length +
+                          ' chapters, ' + state.agg.total + ' questions.';
+      }).catch(function(e){
+        var m = $('dataMsg');
+        m.className = 'msg err';
+        m.textContent = 'API error: ' + e.message;
+      });
+    });
+    $('loadSample').addEventListener('click', function(){
+      loadData(makeSampleData(), 'sample data');
+      $('dataMsg').className = 'msg okmsg';
+      $('dataMsg').textContent = 'Sample data loaded.';
+    });
+    $('copySql').addEventListener('click', function(){
+      try { navigator.clipboard.writeText(SQL_SNIPPET); } catch (e){
+        var r = document.createRange(); r.selectNode($('sqlPre'));
+        window.getSelection().removeAllRanges(); window.getSelection().addRange(r);
+      }
+    });
+  }
+
+  /* ---------------- CSV export ---------------- */
+  function csvCell(v){
+    var s = String(v === null || v === undefined ? '' : v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+  }
+  function download(name, text){
+    var blob = new Blob([text], {type:'text/csv;charset=utf-8'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+  function exportCSV(){
+    var lines = [];
+    if (state.active === 'overview'){
+      var cols = overviewCols();
+      lines.push(cols.map(function(c){ return csvCell(c.label); }).join(','));
+      overviewRows().forEach(function(r){
+        lines.push(cols.map(function(c){
+          var v = r[c.key];
+          if (c.key === 'total') v = r.total;
+          return csvCell(typeof v === 'object' ? '' : v);
+        }).join(','));
+      });
+      download('chapter_summary.csv', lines.join('\n'));
+    } else if (state.active === 'matrix'){
+      var pv = buildPivot(state.rows, state.pivot.rowDim, state.pivot.colDim);
+      lines.push([state.pivot.rowDim].concat(pv.cols, ['Total']).map(csvCell).join(','));
+      pv.rows.forEach(function(r){
+        lines.push([r.label].concat(pv.cols.map(function(c){ return r.cells[c] || 0; }), [r.total]).map(csvCell).join(','));
+      });
+      download('coverage_matrix.csv', lines.join('\n'));
+    } else if (state.active === 'topics'){
+      var a = state.agg;
+      lines.push(['chapter','topic','questions'].concat(a.difficulties, a.types, ['answers_pct','needs_review']).map(csvCell).join(','));
+      a.topics.forEach(function(t){
+        lines.push([t.chapterCode + ' ' + t.chapterName, t.name, t.total]
+          .concat(a.difficulties.map(function(d){ return t.byDifficulty[d] || 0; }))
+          .concat(a.types.map(function(tp){ return t.byType[tp] || 0; }))
+          .concat([t.total ? Math.round(100*t.with_answer/t.total) : '', t.needs_review])
+          .map(csvCell).join(','));
+      });
+      download('topic_counts.csv', lines.join('\n'));
+    } else {
+      var g = findGaps(state.rows, state.agg, state.opts);
+      lines.push(['gap_type','chapter','detail','count','target'].join(','));
+      g.emptyChapters.forEach(function(c){ lines.push(['empty_chapter', c.code + ' ' + c.name, '', 0, ''].map(csvCell).join(',')); });
+      g.lowChapters.forEach(function(c){ lines.push(['below_min_chapter', c.code + ' ' + c.name, '', c.total, state.opts.chapterMin].map(csvCell).join(',')); });
+      g.emptyTopics.forEach(function(t){ lines.push(['empty_topic', t.chapterCode + ' ' + t.chapterName, t.name, 0, ''].map(csvCell).join(',')); });
+      g.below.forEach(function(b){ lines.push(['below_target_cell', b.chapter + ' ' + b.chapterName, b.type + ' × ' + b.difficulty, b.count, b.target].map(csvCell).join(',')); });
+      g.missing.forEach(function(m){ lines.push(['missing_combo', m.chapter + ' ' + m.chapterName, m.type + ' × ' + m.difficulty, 0, m.target].map(csvCell).join(',')); });
+      download('coverage_gaps.csv', lines.join('\n'));
+    }
+  }
+
+  /* ---------------- plumbing ---------------- */
+  function renderActive(){
+    if (state.active === 'overview') renderOverview();
+    else if (state.active === 'matrix') renderMatrix();
+    else if (state.active === 'topics') renderTopics();
+    else if (state.active === 'gaps') renderGaps();
+    else if (state.active === 'data') renderData();
+  }
+  function renderAll(){
+    state.agg = aggregate(state.rows);
+    renderCards();
+    renderActive();
+    $('sourceLabel').textContent = 'Source: ' + state.source + ' · ' + state.rows.length + ' rows';
+  }
+  function loadData(rawRows, label){
+    state.rows = normalizeRows(rawRows);
+    state.source = label;
+    renderAll();
+  }
+
+  function init(){
+    $('tabs').innerHTML = TABS.map(function(t){
+      return '<button data-tab="' + t[0] + '">' + t[1] + '</button>';
+    }).join('');
+    $('tabs').querySelectorAll('button').forEach(function(b){
+      b.addEventListener('click', function(){
+        state.active = b.getAttribute('data-tab');
+        $('tabs').querySelectorAll('button').forEach(function(x){ x.classList.remove('active'); });
+        b.classList.add('active');
+        TABS.forEach(function(t){
+          $('tab-' + t[0]).classList.toggle('active', t[0] === state.active);
+        });
+        renderActive();
+      });
+    });
+    $('tab-overview').classList.add('active');
+    $('chapterMin').addEventListener('change', function(){ state.opts.chapterMin = toNum(this.value); renderAll(); });
+    $('cellTarget').addEventListener('change', function(){ state.opts.cellTarget = toNum(this.value); renderAll(); });
+    $('exportBtn').addEventListener('click', exportCSV);
+    loadData(makeSampleData(), 'sample data');
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+
+})();
+</script>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a45b918fac97fc34',t:'MTc5MTE5NDMxNA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
