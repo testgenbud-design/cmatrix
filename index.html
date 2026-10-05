@@ -81,6 +81,12 @@
   .hint{color:var(--muted);font-size:12.5px}
   .msg{margin-top:8px;font-size:13px}
   .msg.err{color:var(--bad-fg)} .msg.okmsg{color:var(--ok-fg)}
+  .mix{display:inline-flex;width:90px;height:10px;border-radius:4px;overflow:hidden;background:#eef0f4;vertical-align:middle}
+  .mix i{display:block;height:100%}
+  .dims{font-size:11px;color:#667;white-space:nowrap}
+  .scope-t{font-weight:800} .scope-c{padding-left:14px} .scope-s{padding-left:30px}
+  .rdnote{font-size:12px;color:#667;margin:2px 0 10px}
+  table.grid td.sec{white-space:nowrap}
   .gridcols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
   @media (max-width:900px){.gridcols{grid-template-columns:1fr}}
   .detail-title{font-weight:700;margin:14px 0 6px;font-size:13px}
@@ -107,8 +113,10 @@
 </header>
 
 <main>
+  <section id="tab-readiness" class="tab"></section>
   <section id="tab-overview" class="tab"></section>
   <section id="tab-matrix"   class="tab"></section>
+  <section id="tab-classes"  class="tab"></section>
   <section id="tab-topics"  class="tab"></section>
   <section id="tab-gaps"    class="tab"></section>
   <section id="tab-data"    class="tab"></section>
@@ -458,14 +466,15 @@ function makeSampleData(){
 (function(){
 
   var state = {
-    rows: [], source: '', agg: null, active: 'overview',
+    rows: [], raw: [], server: {}, source: '', agg: null, active: 'readiness',
     pivot: {rowDim:'chapter', colDim:'question_type|difficulty'},
     opts: {chapterMin:30, cellTarget:3},
     sort: {}, collapsed: {}, selectedCell: null
   };
 
   var TABS = [
-    ['overview','Overview'],['matrix','Matrix'],['topics','Topics'],['gaps','Gaps'],['data','Data']
+    ['readiness','Readiness'],['overview','Overview'],['matrix','Matrix'],['classes','Classes'],
+    ['topics','Topics'],['gaps','Gaps'],['data','Data']
   ];
 
   function $(id){ return document.getElementById(id); }
@@ -830,9 +839,9 @@ function makeSampleData(){
         '<div class="toolbar" style="margin-bottom:10px">' +
           '<label style="display:flex;align-items:center;gap:6px">n8n endpoint ' +
           '<input type="text" id="apiUrl" style="width:400px;padding:5px 8px;border:1px solid var(--line);border-radius:6px;font:inherit" ' +
-          'placeholder="http://localhost:5678/webhook/mytst-coverage?view=cells"></label>' +
+          'value="https://n8n.mytst.cloud/webhook/mytst-coverage?view=all" placeholder="https://n8n.mytst.cloud/webhook/mytst-coverage?view=all"></label>' +
           '<button class="btn" id="loadApi">Load from n8n</button>' +
-          '<span class="hint">workflow: mytst-coverage-backend.n8n.json (CORS is enabled in its response headers)</span>' +
+          '<span class="hint">use <code>?view=all</code> (matrix + readiness + classes + actions) or <code>?view=cells</code>; filters: <code>&amp;class=11&amp;subject=ACC</code></span>' +
         '</div>' +
         '<p class="hint">…or paste the query output as <b>CSV</b> (with header row) or <b>JSON</b> (array of objects — e.g. straight from n8n / pgAdmin / DBeaver "Copy as JSON") and click <b>Load pasted data</b>.</p>' +
         '<textarea id="pasteBox" placeholder="chapter_code,chapter_name,topic_name,question_type,difficulty,marks,count,with_answer,needs_review,with_diagram&#10;CH01,Number Systems,Real Numbers,MCQ,Easy,1,12,10,1,2"></textarea>' +
@@ -883,25 +892,28 @@ function makeSampleData(){
       var url = $('apiUrl').value.trim();
       var msg = $('dataMsg');
       if (!url){ msg.className = 'msg err'; msg.textContent = 'Enter the n8n webhook URL first.'; return; }
-      msg.className = 'msg'; msg.textContent = 'Loading from ' + url + ' …';
+      msg.className = 'msg'; msg.textContent = 'Loading from ' + url + ' \u2026';
       fetch(url).then(function(r){
-        if (!r.ok) throw new Error('HTTP ' + r.status);
+        if (!r.ok) throw new Error('HTTP ' + r.status + (r.status === 404 ? ' — is the workflow Active?' : ''));
         return r.json();
       }).then(function(j){
-        var rows = Array.isArray(j) ? j
-          : (j && j.data && Array.isArray(j.data.cells)) ? j.data.cells
-          : (j && Array.isArray(j.data)) ? j.data
-          : null;
-        if (!rows) throw new Error('expected an array or {data:{cells:[…]}} — use ?view=cells');
-        loadData(rows, 'n8n API');   // re-renders this tab → re-query the msg node
+        var data = Array.isArray(j) ? {cells: j} : (j && j.data) || null;
+        if (!data) throw new Error('expected {data:{\u2026}} or a JSON array — use ?view=all or ?view=cells');
+        var cells = data.cells || [];
+        var server = {readiness: data.readiness || [], classes: data.classes || [],
+                      capacity: data.capacity || [], actions: data.actions || []};
+        loadData(cells, 'n8n API', server);   // re-renders this tab → re-query the msg node
         var ok2 = $('dataMsg');
         ok2.className = 'msg okmsg';
-        ok2.textContent = 'Loaded ' + rows.length + ' cell rows → ' + state.agg.chapters.length +
-                          ' chapters, ' + state.agg.total + ' questions.';
+        var extra = ['readiness','classes','capacity','actions'].filter(function(k){ return server[k].length; })
+                      .map(function(k){ return k + ' (' + server[k].length + ')'; });
+        ok2.textContent = 'Loaded ' + cells.length + ' cell rows' +
+          (extra.length ? ' + ' + extra.join(', ') : ' (no server views in payload — use ?view=all)') + '.';
       }).catch(function(e){
         var m = $('dataMsg');
         m.className = 'msg err';
-        m.textContent = 'API error: ' + e.message;
+        m.textContent = 'API error: ' + e.message +
+          (e instanceof TypeError ? ' \u2014 likely CORS blocked: in n8n open Respond to Webhook \u2192 Response Headers \u2192 add Access-Control-Allow-Origin: * , or paste the JSON instead' : '');
       });
     });
     $('loadSample').addEventListener('click', function(){
@@ -917,6 +929,307 @@ function makeSampleData(){
     });
   }
 
+  /* ---------------- readiness (paper-generation) + class coverage ---------------- */
+  var RD_SLOTS = [
+    {t:'MCQ', m:1, p:14, f:3, d:10},
+    {t:'Assertion-Reason', m:1, p:4, f:3, d:6},
+    {t:'Very Short Answer', m:2, p:5, f:3, d:5},
+    {t:'Short Answer', m:2, p:5, f:3, d:5},
+    {t:'Short Answer', m:3, p:6, f:3, d:5},
+    {t:'Case-Based', m:4, p:4, f:3, d:4},
+    {t:'Long Answer', m:5, p:4, f:3, d:4}
+  ];
+  var RD_GOALS = {healthy:10, strong:25, viable:1, de:30, dm:40, dh:30, fresh:50};
+  var RD_W = {cur:0.30, marks:0.20, types:0.20, diff:0.15, rot:0.15};
+  function rdNorm(d){ return String(d || '').trim().toLowerCase(); }
+  function rdUsable(r){ return r.usable != null ? toNum(r.usable) : (r.with_answer != null ? toNum(r.with_answer) : toNum(r.count)); }
+  function rdFresh(r){ return r.unused_usable != null ? toNum(r.unused_usable) : (r.unused != null ? Math.min(toNum(r.unused), rdUsable(r)) : null); }
+  function rdStream(code){
+    var m = {Science:['PHY','CHE','BIO','MAT','MATH','CS','IT','SCI'], Commerce:['ACC','BST','ECO','ACF'],
+             Humanities:['HIS','POL','GEO','PSY','SOC','HUM'], Languages:['ENG','HIN','ENF','HNE']};
+    for (var k in m){ if (m[k].indexOf(code) >= 0) return k; }
+    return 'General';
+  }
+
+  // browser approximation of the n8n readiness view, from cell rows (usable/unused optional)
+  function computeReadinessFromRaw(raw){
+    var groups = {};
+    raw.forEach(function(r){
+      var b = r.board || '\u2014', c = (r.class === null || r.class === undefined) ? '\u2014' : String(r.class),
+          su = r.subject_code || '\u2014';
+      (groups[b + '\u0001' + c + '\u0001' + su] = groups[b + '\u0001' + c + '\u0001' + su] || []).push(r);
+    });
+    function partsOf(rows){
+      var o = {chapters:0, total:0, usable:0, fresh:0, hasFresh:true, ideal:0, cells:0, met:0, cap:Infinity,
+               types:0, marks:0, diff:0, rot:0, de:0, dm:0, dh:0};
+      var chaps = {}, cellsMap = {}, slotUs = {}, ppM = {};
+      RD_SLOTS.forEach(function(sl){ o.ideal += sl.p * RD_GOALS.healthy; ppM[sl.m] = (ppM[sl.m] || 0) + sl.p; });
+      rows.forEach(function(r){
+        var u = rdUsable(r);
+        o.total += toNum(r.count); o.usable += u;
+        if (o.hasFresh){ var f = rdFresh(r); if (f === null) o.hasFresh = false; else o.fresh += f; }
+        if (r.chapter_code) chaps[r.chapter_code] = 1;
+        var d = rdNorm(r.difficulty_norm || r.difficulty), m = toNum(r.marks), qt = r.question_type || '';
+        if (u && (d === 'easy' || d === 'medium' || d === 'hard')) o[d === 'easy' ? 'de' : d === 'medium' ? 'dm' : 'dh'] += u;
+        var ck = r.chapter_code + '\u0001' + qt + '\u0001' + m + '\u0001' + d;
+        cellsMap[ck] = (cellsMap[ck] || 0) + u;
+        slotUs[qt + '\u0001' + m] = (slotUs[qt + '\u0001' + m] || 0) + u;
+      });
+      o.chapters = Object.keys(chaps).length;
+      o.cells = o.chapters * RD_SLOTS.length * 3;
+      RD_SLOTS.forEach(function(sl){
+        Object.keys(chaps).forEach(function(c){
+          ['easy','medium','hard'].forEach(function(d){
+            if ((cellsMap[c + '\u0001' + sl.t + '\u0001' + sl.m + '\u0001' + d] || 0) >= sl.f) o.met++;
+          });
+        });
+      });
+      var tv = 0;
+      RD_SLOTS.forEach(function(sl){
+        var u = slotUs[sl.t + '\u0001' + sl.m] || 0;
+        o.cap = Math.min(o.cap, Math.floor(u / sl.p));
+        tv += Math.min(100, 100 * u / (sl.p * RD_GOALS.healthy));
+      });
+      o.types = tv / RD_SLOTS.length;
+      var mkUs = {};
+      rows.forEach(function(r){ mkUs[toNum(r.marks)] = (mkUs[toNum(r.marks)] || 0) + rdUsable(r); });
+      var mSum = 0, mCnt = 0;
+      Object.keys(ppM).forEach(function(m){ if (ppM[m] > 0){ mSum += Math.min(100, 100 * (mkUs[m] || 0) / (ppM[m] * RD_GOALS.healthy)); mCnt++; } });
+      o.marks = mCnt ? mSum / mCnt : 0;
+      if (!isFinite(o.cap)) o.cap = 0;
+      o.diff = o.usable ? Math.max(0, 100 - (Math.abs(100*o.de/o.usable - RD_GOALS.de) + Math.abs(100*o.dm/o.usable - RD_GOALS.dm) + Math.abs(100*o.dh/o.usable - RD_GOALS.dh)) / 2) : 0;
+      o.rot = (o.hasFresh && o.usable) ? Math.min(100, 100 * (o.fresh / o.usable) / (RD_GOALS.fresh / 100)) : null;
+      return o;
+    }
+    function merged(partsList, lvl, board, cls, subj){
+      var sum = function(k){ return partsList.reduce(function(a, p){ return a + p[k]; }, 0); };
+      var avg = function(k){ var v = partsList.filter(function(p){ return p[k] != null; }); return v.length ? v.reduce(function(a, p){ return a + p[k]; }, 0) / v.length : null; };
+      var o = sum('usable'), tot = sum('total'), ideal = sum('ideal');
+      var cap = partsList.length ? Math.min.apply(null, partsList.map(function(p){ return p.cap; })) : 0;
+      var curPct = sum('cells') ? 100 * sum('met') / sum('cells') : 0;
+      var rot = avg('rot');
+      var w = RD_W.cur + RD_W.marks + RD_W.types + RD_W.diff + (rot == null ? 0 : RD_W.rot);
+      var score = (RD_W.cur * curPct + RD_W.marks * avg('marks') + RD_W.types * avg('types') + RD_W.diff * avg('diff') + (rot == null ? 0 : RD_W.rot * rot)) / w;
+      var de = sum('de'), dm = sum('dm'), dh = sum('dh'), dsum = de + dm + dh;
+      return {lvl: lvl, board: board, class: cls, subject_code: subj,
+        stream: subj && subj !== '\u2014' ? rdStream(subj) : null,
+        chapters: sum('chapters'), total: tot, usable: o,
+        unused_usable: partsList.every(function(p){ return p.hasFresh; }) ? sum('fresh') : null,
+        ideal_healthy: ideal, coverage_pct: ideal ? +(100 * o / ideal).toFixed(1) : 0,
+        capacity_papers: cap,
+        tier: cap >= RD_GOALS.strong ? 'strong' : cap >= RD_GOALS.healthy ? 'healthy' : cap >= RD_GOALS.viable ? 'viable' : 'not-ready',
+        cells_total: sum('cells'), cells_met: sum('met'), zero_cells: null,
+        curriculum_pct: +curPct.toFixed(1), marks_score: +(avg('marks') || 0).toFixed(1),
+        types_score: +(avg('types') || 0).toFixed(1), difficulty_score: +(avg('diff') || 0).toFixed(1),
+        rotation_score: rot == null ? null : +rot.toFixed(1), readiness: +score.toFixed(1),
+        pct_easy: dsum ? +(100*de/dsum).toFixed(1) : 0, pct_medium: dsum ? +(100*dm/dsum).toFixed(1) : 0,
+        pct_hard: dsum ? +(100*dh/dsum).toFixed(1) : 0};
+    }
+    var per = {}, byCls = {}, byBrd = {};
+    Object.keys(groups).forEach(function(k){
+      var pp = k.split('\u0001');
+      var parts = partsOf(groups[k]);
+      per[pp[0] + '|' + pp[1] + '|' + pp[2]] = parts;
+      (byCls[pp[0] + '|' + pp[1]] = byCls[pp[0] + '|' + pp[1]] || []).push(parts);
+      (byBrd[pp[0]] = byBrd[pp[0]] || []).push(parts);
+    });
+    var out = [];
+    Object.keys(per).forEach(function(k){
+      var pp = k.split('|');
+      out.push(merged([per[k]], 'subject', pp[0], pp[1], pp[2]));
+    });
+    Object.keys(byCls).forEach(function(k){
+      var pp = k.split('|');
+      out.push(merged(byCls[k], 'class', pp[0], pp[1], null));
+    });
+    Object.keys(byBrd).forEach(function(b){
+      out.push(merged(byBrd[b], 'board', b, null, null));
+    });
+    return out;
+  }
+
+  function readinessRows(){
+    if (state.server.readiness && state.server.readiness.length) return state.server.readiness.slice();
+    if (state.raw && state.raw.length) return computeReadinessFromRaw(state.raw);
+    return computeReadinessFromRaw(state.rows);
+  }
+  function actionsRows(){
+    if (state.server.actions && state.server.actions.length) return state.server.actions;
+    var seen = {}, map = {};
+    var src = (state.raw && state.raw.length) ? state.raw : state.rows;
+    src.forEach(function(r){
+      var d = rdNorm(r.difficulty_norm || r.difficulty);
+      var k = (r.chapter_code || r.chapter_name || '') + '\u0001' + (r.question_type || '') + '\u0001' + toNum(r.marks) + '\u0001' + d;
+      if (!seen[k]){ seen[k] = 1; map[k] = {r: r, usable: 0}; }
+      map[k].usable += rdUsable(r);
+    });
+    var out = [];
+    Object.keys(map).forEach(function(k){
+      var e = map[k], r = e.r, slot = null;
+      RD_SLOTS.forEach(function(sl){ if (sl.t === (r.question_type || '') && sl.m === toNum(r.marks)) slot = sl; });
+      var u = e.usable;
+      if (slot && u < slot.f) out.push({kind: u === 0 ? 'missing' : 'below_floor', chapter_code: r.chapter_code || r.chapter_name,
+        question_type: slot.t, marks: slot.m, difficulty: k.split('\u0001')[3], usable: u, needed: slot.f,
+        gap: slot.f - u, severity: u === 0 ? 'CRITICAL' : 'HIGH',
+        recommendation: u === 0 ? 'ingest PYQ/Exemplar/SQP, human-verify' : 'generate ' + (slot.f - u) + ' more, human-verify'});
+    });
+    var rank = {CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3};
+    out.sort(function(a, b){ return (rank[a.severity] - rank[b.severity]) || (b.gap - a.gap); });
+    return out.slice(0, 20);
+  }
+
+  function tierChip(t){
+    var cls = t === 'strong' || t === 'healthy' ? 'ok' : t === 'viable' ? 'warn' : 'bad';
+    var ic  = t === 'strong' || t === 'healthy' ? '\ud83d\udfe2' : t === 'viable' ? '\ud83d\udfe1' : '\ud83d\udd34';
+    return '<span class="chip ' + cls + '">' + ic + ' ' + esc(t) + '</span>';
+  }
+  function scoreBar(v){
+    if (v === null || v === undefined) return '\u2014';
+    var n = +v, cls = n < 40 ? 'bad' : n < 70 ? 'warn' : '';
+    return '<span class="bar"><i class="' + cls + '" style="width:' + Math.round(n) + '%"></i></span> <b>' + n.toFixed(1) + '</b>';
+  }
+  function pctBar(v){
+    if (v === null || v === undefined) return '\u2014';
+    var n = +v;
+    var cls = n < 40 ? 'bad' : n < 70 ? 'warn' : '';
+    return '<span class="bar"><i class="' + cls + '" style="width:' + Math.min(100, Math.round(n)) + '%"></i></span> ' + n.toFixed(1) + '%';
+  }
+  function mixBar(r){
+    var e = +r.pct_easy || 0, m = +r.pct_medium || 0, h = +r.pct_hard || 0, t = e + m + h;
+    if (!t) return '\u2014';
+    return '<span class="mix" title="easy ' + e + '% / medium ' + m + '% / hard ' + h + '%">' +
+      '<i style="width:' + (100*e/t) + '%;background:#86efac"></i>' +
+      '<i style="width:' + (100*m/t) + '%;background:#fde68a"></i>' +
+      '<i style="width:' + (100*h/t) + '%;background:#fca5a5"></i></span>';
+  }
+  function renderReadiness(){
+    var el = $('tab-readiness');
+    var rows = readinessRows();
+    var order = {board: 0, class: 1, subject: 2};
+    rows.sort(function(a, b){
+      var l = order[a.lvl] - order[b.lvl];
+      if (l) return l;
+      var c = String(a.class || '').localeCompare(String(b.class || ''), undefined, {numeric: true});
+      if (c) return c;
+      var st = String(a.stream || '').localeCompare(String(b.stream || ''));
+      if (st) return st;
+      return String(a.subject_code || '').localeCompare(String(b.subject_code || ''));
+    });
+    state.lastRd = rows;
+    var cols = [
+      {label:'Scope (board \u2192 class \u2192 subject)', key:'subject_code', render: function(r){
+        if (r.lvl === 'board') return '<span class="scope-t">\ud83c\udfdb ' + esc(r.board || '\u2014') + ' — all classes</span>';
+        if (r.lvl === 'class') return '<span class="scope-c">Class ' + esc(r.class) + '</span>';
+        return '<span class="scope-s">' + esc(r.stream || '') + ' \u00b7 ' + esc(r.subject_code) + '</span>';
+      }},
+      {label:'Chapters', key:'chapters', cls:'num'},
+      {label:'Total', key:'total', cls:'num'},
+      {label:'Usable', key:'usable', cls:'num', render: function(r){ return '<b>' + r.usable + '</b>'; }},
+      {label:'Ideal (healthy)', key:'ideal_healthy', cls:'num'},
+      {label:'Coverage', key:'coverage_pct', cls:'num', render: function(r){ return pctBar(r.coverage_pct); }},
+      {label:'Capacity', key:'capacity_papers', cls:'num', render: function(r){ return (r.capacity_papers == null ? '\u2014' : r.capacity_papers) + ' \ud83d\udcc4'; }},
+      {label:'Tier', key:'tier', render: function(r){ return tierChip(r.tier); }},
+      {label:'Readiness', key:'readiness', cls:'num', render: function(r){ return scoreBar(r.readiness); }},
+      {label:'Dimensions', key:'curriculum_pct', render: function(r){
+        var d = 'cur ' + r.curriculum_pct + '% \u00b7 mk ' + r.marks_score + ' \u00b7 ty ' + r.types_score +
+                ' \u00b7 df ' + r.difficulty_score;
+        if (r.rotation_score != null) d += ' \u00b7 rot ' + r.rotation_score;
+        if (r.zero_cells != null) d += ' \u00b7 ' + r.zero_cells + ' zero cells';
+        return '<span class="dims">' + esc(d) + '</span>';
+      }},
+      {label:'Usable mix', key:'pct_easy', render: mixBar}
+    ];
+    var a = actionsRows();
+    var src = (state.server.readiness && state.server.readiness.length)
+      ? 'n8n <code>readiness</code> view (authoritative — uses coverage_requirements when present)'
+      : 'approximated in the browser from loaded cell rows (default blueprint ' + RD_SLOTS.length + ' slots \u00d7 targets \u00d7 ' + RD_GOALS.healthy + '-paper healthy goal)';
+    var h = '<h2>Paper-generation readiness</h2>' +
+      '<p class="rdnote">Required = blueprint \u00d7 papers, not a wish. ' +
+      'capacity = max mutually-disjoint papers = min over slots of usable \u00f7 per-paper demand. Source: ' + src + '.</p>' +
+      '<div class="panel">' + buildTable('rd-table', cols, rows, {rowClass: function(r){ return r.lvl === 'board' ? 'sec' : ''; }}) + '</div>' +
+      '<h2>What to acquire next</h2><div class="panel">' +
+      buildTable('rd-actions', [
+        {label:'Severity', key:'severity', render: function(r){ return '<span class="chip ' + (r.severity === 'CRITICAL' ? 'bad' : r.severity === 'HIGH' ? 'warn' : 'info') + '">' + esc(r.severity) + '</span>'; }},
+        {label:'Kind', key:'kind'},
+        {label:'Where', key:'where', render: function(r){
+          var w = r.chapter_code || (r.subject_code ? r.subject_code + ' (' + r.class + ')' : '');
+          return esc(w || '\u2014');
+        }},
+        {label:'Slot', key:'slot', render: function(r){
+          return esc((r.question_type || '\u2014') + ' \u00d7 ' + (r.marks != null && r.marks !== '' ? r.marks + 'm' : '?') + (r.difficulty ? ' \u00b7 ' + r.difficulty : ''));
+        }},
+        {label:'Usable', key:'usable', cls:'num'},
+        {label:'Needed', key:'needed', cls:'num'},
+        {label:'Gap', key:'gap', cls:'num', render: function(r){ return '<b>' + r.gap + '</b>'; }},
+        {label:'Recommendation', key:'recommendation'}
+      ], a) + '</div>';
+    el.innerHTML = h;
+    wireSort(el, renderReadiness);
+  }
+
+  function classesRows(){
+    if (state.server.classes && state.server.classes.length) return state.server.classes.slice();
+    var g = {}, order = [];
+    var src = (state.raw && state.raw.length) ? state.raw : state.rows;
+    src.forEach(function(r){
+      var cls = (r.class === null || r.class === undefined) ? '\u2014' : String(r.class);
+      var sub = r.subject_code || '\u2014';
+      var k = cls + '\u0001' + sub;
+      var o = g[k];
+      if (!o){ o = g[k] = {class: cls, subject_code: sub === '\u2014' ? null : sub, chaps: {}, total: 0, usable: 0, answered: 0, unused: 0}; order.push(k); }
+      if (r.chapter_code) o.chaps[r.chapter_code] = 1;
+      o.total += toNum(r.count);
+      o.usable += rdUsable(r);
+      o.answered += r.with_answer != null ? toNum(r.with_answer) : rdUsable(r);
+      if (r.unused != null) o.unused += toNum(r.unused);
+    });
+    var rows = order.map(function(k){
+      var o = g[k];
+      return {board: '', class: o.class, stream: o.subject_code ? rdStream(o.subject_code) : null,
+        subject_code: o.subject_code, chapters: Object.keys(o.chaps).length, total: o.total,
+        with_answer: o.answered, usable: o.usable, unused: o.unused, unused_usable: null,
+        pct_usable: o.total ? +(100 * o.usable / o.total).toFixed(1) : 0};
+    });
+    var roll = {};
+    rows.forEach(function(r){
+      var o = roll[r.class] || (roll[r.class] = {board: r.board, class: r.class, subject_code: null, chaps: 0, total: 0, with_answer: 0, usable: 0, unused: 0});
+      o.chaps += r.chapters; o.total += r.total; o.with_answer += r.with_answer; o.usable += r.usable; o.unused += r.unused;
+    });
+    Object.keys(roll).forEach(function(c){
+      var o = roll[c];
+      rows.push({board: o.board, class: c, stream: null, subject_code: null, chapters: o.chaps, total: o.total,
+        with_answer: o.with_answer, usable: o.usable, unused: o.unused, unused_usable: null,
+        pct_usable: o.total ? +(100 * o.usable / o.total).toFixed(1) : 0});
+    });
+    rows.sort(function(a, b){ return String(a.class).localeCompare(String(b.class), undefined, {numeric:true}) || ((a.subject_code === null) ? -1 : (b.subject_code === null ? 1 : String(a.subject_code).localeCompare(String(b.subject_code)))) || 0; });
+    return rows;
+  }
+  function renderClasses(){
+    var el = $('tab-classes');
+    var rows = classesRows();
+    state.lastClasses = rows;
+    var cols = [
+      {label:'Class', key:'class', render: function(r){ return r.subject_code === null || r.subject_code === undefined ? '<span class="scope-t">Class ' + esc(r.class) + ' \u00b7 ALL</span>' : 'Class ' + esc(r.class); }},
+      {label:'Stream', key:'stream', render: function(r){ return esc(r.stream || '\u2014'); }},
+      {label:'Subject', key:'subject_code', render: function(r){ return esc(r.subject_code === null || r.subject_code === undefined ? 'all subjects' : r.subject_code); }},
+      {label:'Chapters', key:'chapters', cls:'num'},
+      {label:'Total', key:'total', cls:'num'},
+      {label:'With answer', key:'with_answer', cls:'num'},
+      {label:'Usable', key:'usable', cls:'num', render: function(r){ return '<b>' + r.usable + '</b>'; }},
+      {label:'Unused', key:'unused', cls:'num'},
+      {label:'Usable %', key:'pct_usable', cls:'num', render: function(r){ return pctBar(r.pct_usable); }},
+      {label:'Status', key:'pct_usable', render: function(r){
+        var p = +r.pct_usable || 0;
+        return r.total === 0 ? '<span class="chip bad">Empty</span>' : p < 40 ? '<span class="chip bad">Thin</span>' : p < 70 ? '<span class="chip warn">Growing</span>' : '<span class="chip ok">Healthy</span>';
+      }}
+    ];
+    el.innerHTML = '<h2>Class-wise coverage</h2>' +
+      '<p class="rdnote">Usable % = share of questions the paper builder can actually serve. Rollup rows ("all subjects") lead each class. ' +
+      (state.server.classes && state.server.classes.length ? 'From the n8n <code>classes</code> view.' : 'Approximated from loaded cell rows.') + '</p>' +
+      '<div class="panel">' + buildTable('cls-table', cols, rows) + '</div>';
+    wireSort(el, renderClasses);
+  }
+
   /* ---------------- CSV export ---------------- */
   function csvCell(v){
     var s = String(v === null || v === undefined ? '' : v);
@@ -928,6 +1241,13 @@ function makeSampleData(){
     a.href = URL.createObjectURL(blob);
     a.download = name;
     document.body.appendChild(a); a.click(); a.remove();
+  }
+  function exportObj(rows, cols, name){
+    var lines = [cols.join(',')];
+    (rows || []).forEach(function(r){
+      lines.push(cols.map(function(c){ return csvCell(r[c]); }).join(','));
+    });
+    download(name, lines.join('\n'));
   }
   function exportCSV(){
     var lines = [];
@@ -942,6 +1262,14 @@ function makeSampleData(){
         }).join(','));
       });
       download('chapter_summary.csv', lines.join('\n'));
+    } else if (state.active === 'readiness'){
+      exportObj(state.lastRd || [], ['lvl','board','class','stream','subject_code','chapters','total','usable',
+        'unused_usable','ideal_healthy','ideal_strong','coverage_pct','capacity_papers','tier','cells_total',
+        'cells_met','zero_cells','curriculum_pct','marks_score','types_score','difficulty_score',
+        'rotation_score','readiness','pct_easy','pct_medium','pct_hard'], 'readiness.csv');
+    } else if (state.active === 'classes'){
+      exportObj(state.lastClasses || [], ['board','class','stream','subject_code','chapters','total',
+        'with_answer','usable','unused','unused_usable','pct_usable'], 'class_coverage.csv');
     } else if (state.active === 'matrix'){
       var pv = buildPivot(state.rows, state.pivot.rowDim, state.pivot.colDim);
       lines.push([state.pivot.rowDim].concat(pv.cols, ['Total']).map(csvCell).join(','));
@@ -974,7 +1302,9 @@ function makeSampleData(){
 
   /* ---------------- plumbing ---------------- */
   function renderActive(){
-    if (state.active === 'overview') renderOverview();
+    if (state.active === 'readiness') renderReadiness();
+    else if (state.active === 'classes') renderClasses();
+    else if (state.active === 'overview') renderOverview();
     else if (state.active === 'matrix') renderMatrix();
     else if (state.active === 'topics') renderTopics();
     else if (state.active === 'gaps') renderGaps();
@@ -986,8 +1316,10 @@ function makeSampleData(){
     renderActive();
     $('sourceLabel').textContent = 'Source: ' + state.source + ' · ' + state.rows.length + ' rows';
   }
-  function loadData(rawRows, label){
+  function loadData(rawRows, label, server){
     state.rows = normalizeRows(rawRows);
+    state.raw = rawRows || [];
+    state.server = server || {};
     state.source = label;
     renderAll();
   }
@@ -1007,7 +1339,7 @@ function makeSampleData(){
         renderActive();
       });
     });
-    $('tab-overview').classList.add('active');
+    $('tab-readiness').classList.add('active');
     $('chapterMin').addEventListener('change', function(){ state.opts.chapterMin = toNum(this.value); renderAll(); });
     $('cellTarget').addEventListener('change', function(){ state.opts.cellTarget = toNum(this.value); renderAll(); });
     $('exportBtn').addEventListener('click', exportCSV);
@@ -1019,5 +1351,5 @@ function makeSampleData(){
 
 })();
 </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a45b918fac97fc34',t:'MTc5MTE5NDMxNA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a45c3c3c3c91fdd1',t:'MTc5MTIwMTMwNA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
