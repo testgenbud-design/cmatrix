@@ -87,6 +87,37 @@
   .scope-t{font-weight:800} .scope-c{padding-left:14px} .scope-s{padding-left:30px}
   .rdnote{font-size:12px;color:#667;margin:2px 0 10px}
   table.grid td.sec{white-space:nowrap}
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:10px}
+  .scard{border:1px solid var(--line);border-radius:12px;padding:14px 16px;cursor:pointer;background:#fff;
+         transition:box-shadow .15s,border-color .15s}
+  .scard:hover{border-color:var(--accent);box-shadow:0 3px 12px rgba(30,64,175,.08)}
+  .scard .t{font-weight:800;font-size:15px;margin-bottom:8px}
+  .scard .kv{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;color:#556;margin-top:3px}
+  .scard .kv b{color:#111;font-weight:700}
+  .scard .hint{color:#99a;font-weight:400;font-size:11px}
+  .crumbs{display:flex;gap:7px;align-items:center;font-size:13px;margin:2px 0 14px;flex-wrap:wrap}
+  .crumbs a{color:var(--accent);cursor:pointer;font-weight:600;text-decoration:none}
+  .crumbs a:hover{text-decoration:underline}
+  .crumbs i{color:#99a;font-style:normal}
+  .strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:10px;margin:10px 0 16px}
+  .stat{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff}
+  .stat .v{font-size:19px;font-weight:800}
+  .stat .l{font-size:10.5px;color:#667;text-transform:uppercase;letter-spacing:.4px;margin-top:2px}
+  .dimb{display:flex;align-items:center;gap:10px;font-size:12px;margin:5px 0}
+  .dimb .dl{width:120px;color:#556;text-align:right;flex:none}
+  .dimb .db{flex:1;max-width:260px;height:8px;background:#eef0f4;border-radius:4px;overflow:hidden}
+  .dimb .db i{display:block;height:100%;background:var(--accent)}
+  .dimb .dv{width:44px;font-weight:700}
+  .streamhead{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 12px;margin:14px 0 2px;
+              background:var(--accent-soft);border-radius:9px;cursor:pointer;font-weight:700;font-size:13.5px}
+  .streamhead:hover{filter:brightness(.97)}
+  .streamhead .s{font-weight:400;color:#556;font-size:12px}
+  table.grid td.hc{text-align:center;font-weight:700;cursor:pointer;border:2px solid #fff;border-radius:6px}
+  .legend{display:flex;gap:14px;align-items:center;font-size:11.5px;color:#556;margin:8px 0}
+  .legend i{width:14px;height:14px;border-radius:4px;display:inline-block;vertical-align:-2px;margin-right:4px}
+  .sevfilter{display:flex;gap:6px;margin:8px 0;flex-wrap:wrap}
+  .sevfilter button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:3px 12px;font:inherit;font-size:12px;cursor:pointer}
+  .sevfilter button.on{background:var(--accent);border-color:var(--accent);color:#fff}
   .gridcols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
   @media (max-width:900px){.gridcols{grid-template-columns:1fr}}
   .detail-title{font-weight:700;margin:14px 0 6px;font-size:13px}
@@ -113,13 +144,11 @@
 </header>
 
 <main>
-  <section id="tab-readiness" class="tab"></section>
-  <section id="tab-overview" class="tab"></section>
-  <section id="tab-matrix"   class="tab"></section>
-  <section id="tab-classes"  class="tab"></section>
-  <section id="tab-topics"  class="tab"></section>
-  <section id="tab-gaps"    class="tab"></section>
-  <section id="tab-data"    class="tab"></section>
+  <section id="tab-explorer"  class="tab"></section>
+  <section id="tab-plan"      class="tab"></section>
+  <section id="tab-chapters"  class="tab"></section>
+  <section id="tab-matrix"    class="tab"></section>
+  <section id="tab-data"      class="tab"></section>
 </main>
 
 <script id="logic">
@@ -428,6 +457,11 @@ function makeSampleData(){
     {name:'Case-Based',   marks:[4]}
   ];
   var diffs = ['Easy','Medium','Hard'];
+  // demo scopes: CH01–05 → CBSE Class 10 Mathematics · CH06–08 → Class 10 Science · CH09–10 → Class 11 Physics
+  var scopes = [['MAT',10],['MAT',10],['MAT',10],['MAT',10],['MAT',10],
+                ['SCI',10],['SCI',10],['SCI',10],['PHY',11],['PHY',11]];
+  // separate deterministic RNG for the usability extras — keeps the main stream untouched
+  var rnd2 = (function(){ var x = 20261005; return function(){ x = (x * 1103515245 + 12345) % 2147483648; return x / 2147483648; }; })();
   var rows = [];
   chapters.forEach(function(ch, ci){
     var sparse = (ci === 8);   // CH09 Statistics: deliberately thin
@@ -446,9 +480,13 @@ function makeSampleData(){
               ? Math.floor(rnd() * (count > 2 ? 3 : 1))
               : (rnd() < 0.3 ? 1 : 0);
             withDiagram = Math.min(withDiagram, count);
+            var usable = Math.max(0, withAnswer - needsReview);
+            var unused = Math.floor(rnd2() * (usable + 1));
             rows.push({chapter_code:ch.code, chapter_name:ch.name, topic_name:topic,
                        question_type:t.name, difficulty:d, marks:m, count:count,
-                       with_answer:withAnswer, needs_review:needsReview, with_diagram:withDiagram});
+                       with_answer:withAnswer, needs_review:needsReview, with_diagram:withDiagram,
+                       board:'CBSE', class:scopes[ci][1], subject_code:scopes[ci][0],
+                       usable:usable, unused:unused});
           });
         });
       });
@@ -459,23 +497,45 @@ function makeSampleData(){
 </script>
 
 <script id="ui">
-/* ============================================================
-   Coverage Matrix — UI layer
-   ============================================================ */
 'use strict';
 (function(){
 
   var state = {
-    rows: [], raw: [], server: {}, source: '', agg: null, active: 'readiness',
+    rows: [], raw: [], server: {}, source: '', agg: null, active: 'explorer',
     pivot: {rowDim:'chapter', colDim:'question_type|difficulty'},
     opts: {chapterMin:30, cellTarget:3},
-    sort: {}, collapsed: {}, selectedCell: null
+    sort: {}, selectedCell: null,
+    nav: {board: null, class: null, stream: null, subject: null, chapter: null},
+    planSev: 'ALL', _navq: [], lastHeat: null, lastPlan: null
   };
 
   var TABS = [
-    ['readiness','Readiness'],['overview','Overview'],['matrix','Matrix'],['classes','Classes'],
-    ['topics','Topics'],['gaps','Gaps'],['data','Data']
+    ['explorer','Explorer'], ['plan','Add / Missing'], ['chapters','Chapters'],
+    ['matrix','Matrix'], ['data','Data']
   ];
+
+  /* ---------------- KPI strip (global) ---------------- */
+  function renderCards(){
+    var rd = readinessRows();
+    var brd = rd.filter(function(r){ return r.lvl === 'board'; });
+    if (!brd.length) brd = [{total:0, usable:0, ideal_healthy:0, capacity_papers:null}];
+    var S = function(k){ return brd.reduce(function(a, r){ return a + (+r[k] || 0); }, 0); };
+    var caps = brd.map(function(r){ return r.capacity_papers; }).filter(function(v){ return v != null; });
+    var a = state.agg;
+    var g = findGaps(state.rows, a, state.opts);
+    var ideal = S('ideal_healthy');
+    var minCap = caps.length ? Math.min.apply(null, caps) : null;
+    var defs = [
+      ['Questions', S('total'), ''],
+      ['Usable', S('usable'), ''],
+      ['Coverage of blueprint', ideal ? Math.round(100 * S('usable') / ideal) + '%' : '—', ''],
+      ['Disjoint papers (min)', minCap == null ? '—' : minCap + ' 📄', minCap != null && minCap < RD_GOALS.healthy ? 'warn' : 'ok'],
+      ['Empty chapters', g.emptyChapters.length, g.emptyChapters.length ? 'bad' : 'ok']
+    ];
+    $('cards').innerHTML = defs.map(function(d){
+      return '<div class="kpi ' + d[2] + '"><div class="v">' + esc(d[1]) + '</div><div class="l">' + esc(d[0]) + '</div></div>';
+    }).join('');
+  }
 
   function $(id){ return document.getElementById(id); }
   function esc(s){
@@ -498,25 +558,6 @@ function makeSampleData(){
       ? order.filter(function(k){ return map[k]; })
       : Object.keys(map);
     return keys.map(function(k){ return k + '×' + map[k]; }).join(' · ') || '—';
-  }
-
-  /* ---------------- KPI cards ---------------- */
-  function renderCards(){
-    var a = state.agg;
-    var gaps = findGaps(state.rows, a, state.opts);
-    var defs = [
-      ['Questions', a.total, ''],
-      ['Chapters', a.chapters.length, ''],
-      ['Topics', a.topics.length, ''],
-      ['Empty chapters', gaps.emptyChapters.length, gaps.emptyChapters.length ? 'bad' : 'ok'],
-      ['Empty topics', gaps.emptyTopics.length, gaps.emptyTopics.length ? 'bad' : 'ok'],
-      ['Chapters below min', gaps.lowChapters.length, gaps.lowChapters.length ? 'warn' : 'ok'],
-      ['Answers present', pct(a.withAnswer, a.total), ''],
-      ['Needs review', a.needsReview, a.needsReview ? 'warn' : 'ok']
-    ];
-    $('cards').innerHTML = defs.map(function(d){
-      return '<div class="kpi ' + d[2] + '"><div class="v">' + esc(d[1]) + '</div><div class="l">' + esc(d[0]) + '</div></div>';
-    }).join('');
   }
 
   /* ---------------- generic sortable table ---------------- */
@@ -603,7 +644,7 @@ function makeSampleData(){
     return cols;
   }
   function renderOverview(){
-    var el = $('tab-overview');
+    var el = $('tab-chapters');
     el.innerHTML = '<h2>Chapter summary</h2><div class="panel">' +
       buildTable('overview', overviewCols(), overviewRows(), {defaultSort:'total'}) +
       '</div><p class="hint">Click any column header to sort. "Marks mix" shows question counts per marks value, e.g. 1×42 · 2×25 · 5×10.</p>';
@@ -696,237 +737,6 @@ function makeSampleData(){
     }
     var d = $('matrixDetail');
     if (d) d.innerHTML = h;
-  }
-
-  /* ---------------- Topics tab ---------------- */
-  function renderTopics(){
-    var el = $('tab-topics');
-    var a = state.agg;
-    var h = '<h2>Topic-level counts</h2>' +
-      '<div class="toolbar"><button class="btn ghost" id="expandAll">Expand all</button>' +
-      '<button class="btn ghost" id="collapseAll">Collapse all</button></div><div class="panel">';
-    a.chapters.forEach(function(ch){
-      var open = !state.collapsed[ch.code];
-      h += '<table class="grid" style="margin-bottom:14px"><thead><tr>' +
-        '<th style="min-width:260px">Topic</th><th class="num">Questions</th>';
-      a.difficulties.forEach(function(d){ h += '<th class="num">' + esc(d) + '</th>'; });
-      a.types.forEach(function(t){ h += '<th class="num">' + esc(t) + '</th>'; });
-      h += '<th class="num">Answers %</th><th class="num">Review</th><th>Status</th></tr></thead><tbody>';
-      h += '<tr class="chapter-row"><td><span class="toggle" data-ch="' + esc(ch.code) + '">' + (open ? '▾' : '▸') + '</span>' +
-           esc(ch.code + ' — ' + ch.name) + '</td><td class="num">' + ch.total + '</td>';
-      a.difficulties.forEach(function(d){ h += '<td class="num">' + (ch.byDifficulty[d] || 0) + '</td>'; });
-      a.types.forEach(function(t){ h += '<td class="num">' + (ch.byType[t] || 0) + '</td>'; });
-      h += '<td class="num">' + (ch.total ? Math.round(100*ch.with_answer/ch.total) + '%' : '—') + '</td>' +
-           '<td class="num">' + ch.needs_review + '</td><td>' + statusChip(ch) + '</td></tr>';
-      if (open){
-        a.topics.filter(function(t){ return t.chapterKey === ch.key; }).forEach(function(t){
-          h += '<tr><td style="padding-left:28px">' + esc(t.name) + '</td><td class="num">' + t.total + '</td>';
-          a.difficulties.forEach(function(d){ h += '<td class="num">' + (t.byDifficulty[d] || 0) + '</td>'; });
-          a.types.forEach(function(tp){ h += '<td class="num">' + (t.byType[tp] || 0) + '</td>'; });
-          h += '<td class="num">' + (t.total ? Math.round(100*t.with_answer/t.total) + '%' : '—') + '</td>' +
-               '<td class="num">' + t.needs_review + '</td><td>' +
-               (t.total === 0 ? '<span class="chip bad">Empty</span>' : '') + '</td></tr>';
-        });
-      }
-      h += '</tbody></table>';
-    });
-    h += '</div>';
-    el.innerHTML = h;
-    el.querySelectorAll('.toggle').forEach(function(s){
-      s.addEventListener('click', function(){
-        var code = s.getAttribute('data-ch');
-        state.collapsed[code] = !state.collapsed[code];
-        renderTopics();
-      });
-    });
-    $('expandAll').addEventListener('click', function(){ state.collapsed = {}; renderTopics(); });
-    $('collapseAll').addEventListener('click', function(){
-      state.agg.chapters.forEach(function(c){ state.collapsed[c.code] = true; });
-      renderTopics();
-    });
-  }
-
-  /* ---------------- Gaps tab ---------------- */
-  function renderGaps(){
-    var el = $('tab-gaps');
-    var g = findGaps(state.rows, state.agg, state.opts);
-    var h = '<h2>Gap analysis</h2>' +
-      '<div class="panel"><div class="gapcards">' +
-      (g.emptyChapters.length
-        ? g.emptyChapters.map(function(c){
-            return '<div class="gapcard"><b>' + esc(c.code) + '</b><span>' + esc(c.name) + ' — 0 questions</span></div>';
-          }).join('')
-        : '<span class="chip ok">No empty chapters</span>') +
-      '</div></div>';
-
-    h += '<h2>Chapters below minimum (' + state.opts.chapterMin + ')</h2><div class="panel">' +
-      (g.lowChapters.length
-        ? buildTable('gapsLow', [
-            {label:'Chapter', key:'chapter'},
-            {label:'Questions', key:'total', cls:'num'},
-            {label:'Minimum', key:'min', cls:'num'},
-            {label:'Shortfall', key:'short', cls:'num'}
-          ], g.lowChapters.map(function(c){
-            return {chapter:c.code + ' — ' + c.name, total:c.total, min:state.opts.chapterMin,
-                    short:state.opts.chapterMin - c.total};
-          }), {defaultSort:'short'})
-        : '<span class="chip ok">All chapters meet the minimum</span>') + '</div>';
-
-    h += '<h2>Empty topics</h2><div class="panel">' +
-      (g.emptyTopics.length
-        ? buildTable('gapsTopics', [
-            {label:'Chapter', key:'chapter'}, {label:'Topic', key:'topic'}
-          ], g.emptyTopics.map(function(t){
-            return {chapter:t.chapterCode + ' — ' + t.chapterName, topic:t.name};
-          }))
-        : '<span class="chip ok">No empty topics</span>') + '</div>';
-
-    h += '<h2>Cells below target (' + state.opts.cellTarget + ' per type × difficulty)</h2><div class="panel">' +
-      (g.below.length
-        ? buildTable('gapsBelow', [
-            {label:'Chapter', key:'chapter'}, {label:'Type', key:'type'},
-            {label:'Difficulty', key:'difficulty'}, {label:'Actual', key:'count', cls:'num'},
-            {label:'Target', key:'target', cls:'num'}, {label:'Shortfall', key:'short', cls:'num'}
-          ], g.below.map(function(b){
-            return {chapter:b.chapter + ' — ' + b.chapterName, type:b.type, difficulty:b.difficulty,
-                    count:b.count, target:b.target, short:b.target - b.count};
-          }), {defaultSort:'count'})
-        : '<span class="chip ok">No cells below target</span>') + '</div>';
-
-    h += '<h2>Missing combinations (0 questions for a type × difficulty)</h2><div class="panel">';
-    if (g.missing.length){
-      var byCh = {};
-      g.missing.forEach(function(m){ (byCh[m.chapter] = byCh[m.chapter] || {name:m.chapterName, items:[]}).items.push(m); });
-      Object.keys(byCh).forEach(function(code){
-        h += '<p style="margin:10px 0 2px"><b>' + esc(code + ' — ' + byCh[code].name) + '</b></p><div>';
-        byCh[code].items.forEach(function(m){
-          h += '<span class="combo">' + esc(m.type) + ' · <b>' + esc(m.difficulty) + '</b></span>';
-        });
-        h += '</div>';
-      });
-    } else {
-      h += '<span class="chip ok">No missing combinations</span>';
-    }
-    h += '</div>';
-    el.innerHTML = h;
-    wireSort(el, renderGaps);
-  }
-
-  /* ---------------- Data tab ---------------- */
-  var SQL_SNIPPET =
-"-- Cell-level export for this page — question_versions has every dimension,\n" +
-"-- so no joins are needed. (This is the ?view=cells query in the n8n\n" +
-"-- workflow mytst-coverage-backend.n8n.json.)\n" +
-"-- Labels to check first: run ?view=health to see your real status /\n" +
-"-- question_type / difficulty values and edit the filters to match.\n" +
-"SELECT board, class, subject_code, chapter_code, chapter, topic,\n" +
-"       question_type, marks, difficulty,\n" +
-"       count(*)::int AS count,\n" +
-"       count(*) FILTER (WHERE answer IS NOT NULL AND answer <> '')::int AS with_answer,\n" +
-"       count(*) FILTER (WHERE times_used = 0)::int AS unused,\n" +
-"       count(*) FILTER (WHERE status = 'valid'\n" +
-"                         AND answer IS NOT NULL AND answer <> '')::int AS usable\n" +
-"FROM question_versions\n" +
-"GROUP BY board, class, subject_code, chapter_code, chapter, topic,\n" +
-"         question_type, marks, difficulty\n" +
-"ORDER BY chapter_code, topic, question_type, marks, difficulty;";
-
-  function renderData(){
-    var el = $('tab-data');
-    el.innerHTML =
-      '<h2>Load your own data</h2>' +
-      '<div class="panel">' +
-        '<div class="toolbar" style="margin-bottom:10px">' +
-          '<label style="display:flex;align-items:center;gap:6px">n8n endpoint ' +
-          '<input type="text" id="apiUrl" style="width:400px;padding:5px 8px;border:1px solid var(--line);border-radius:6px;font:inherit" ' +
-          'value="https://n8n.mytst.cloud/webhook/mytst-coverage?view=all" placeholder="https://n8n.mytst.cloud/webhook/mytst-coverage?view=all"></label>' +
-          '<button class="btn" id="loadApi">Load from n8n</button>' +
-          '<span class="hint">use <code>?view=all</code> (matrix + readiness + classes + actions) or <code>?view=cells</code>; filters: <code>&amp;class=11&amp;subject=ACC</code></span>' +
-        '</div>' +
-        '<p class="hint">…or paste the query output as <b>CSV</b> (with header row) or <b>JSON</b> (array of objects — e.g. straight from n8n / pgAdmin / DBeaver "Copy as JSON") and click <b>Load pasted data</b>.</p>' +
-        '<textarea id="pasteBox" placeholder="chapter_code,chapter_name,topic_name,question_type,difficulty,marks,count,with_answer,needs_review,with_diagram&#10;CH01,Number Systems,Real Numbers,MCQ,Easy,1,12,10,1,2"></textarea>' +
-        '<div class="toolbar" style="margin-top:10px">' +
-          '<button class="btn" id="loadPaste">Load pasted data</button>' +
-          '<button class="btn sec" id="loadSample">Load sample data</button>' +
-        '</div>' +
-        '<div class="msg" id="dataMsg"></div>' +
-      '</div>' +
-      '<div class="gridcols">' +
-        '<div class="panel"><h2 style="margin-top:0">Expected columns</h2>' +
-          '<table class="grid"><thead><tr><th>Column</th><th>Required</th><th>Notes</th></tr></thead><tbody>' +
-          '<tr><td>chapter_code</td><td>yes</td><td>row identity; falls back to chapter_name</td></tr>' +
-          '<tr><td>chapter_name</td><td>yes</td><td></td></tr>' +
-          '<tr><td>topic_name</td><td>no</td><td>enables topic drill-down</td></tr>' +
-          '<tr><td>question_type</td><td>no</td><td>MCQ / Short / Long / Case-Based …</td></tr>' +
-          '<tr><td>difficulty</td><td>no</td><td>Easy / Medium / Hard (any labels)</td></tr>' +
-          '<tr><td>marks</td><td>no</td><td>numeric preferred</td></tr>' +
-          '<tr><td>count</td><td>no</td><td>questions in the cell; defaults to 1 if omitted (question-level rows)</td></tr>' +
-          '<tr><td>with_answer</td><td>no</td><td>quality flag</td></tr>' +
-          '<tr><td>needs_review</td><td>no</td><td>quality flag</td></tr>' +
-          '<tr><td>with_diagram</td><td>no</td><td>quality flag</td></tr>' +
-          '</tbody></table>' +
-          '<p class="hint">Common aliases are auto-detected (type/qtype, level, questions/total, answered …). Rows with count = 0 are kept — they show up as gaps.</p>' +
-        '</div>' +
-        '<div class="panel"><h2 style="margin-top:0">Coverage query (draft)</h2>' +
-          '<pre id="sqlPre">' + esc(SQL_SNIPPET) + '</pre>' +
-          '<button class="btn ghost" id="copySql">Copy SQL</button>' +
-          '<p class="hint">Placeholders marked &lt;&lt;…&gt;&gt; still need your real column names — see coverage_queries.sql.</p>' +
-        '</div>' +
-      '</div>';
-
-    $('loadPaste').addEventListener('click', function(){
-      var msg = $('dataMsg');
-      try {
-        var raw = parseInput($('pasteBox').value);
-        if (!raw.length){ msg.className = 'msg err'; msg.textContent = 'Nothing to parse — paste CSV or JSON first.'; return; }
-        loadData(raw, 'pasted data');   // re-renders the Data tab → old msg node is detached
-        var ok2 = $('dataMsg');         // re-query the fresh node
-        ok2.className = 'msg okmsg';
-        ok2.textContent = 'Loaded ' + raw.length + ' rows → ' + state.agg.chapters.length + ' chapters, ' + state.agg.total + ' questions.';
-      } catch (e){
-        msg.className = 'msg err';
-        msg.textContent = 'Parse error: ' + e.message;
-      }
-    });
-    $('loadApi').addEventListener('click', function(){
-      var url = $('apiUrl').value.trim();
-      var msg = $('dataMsg');
-      if (!url){ msg.className = 'msg err'; msg.textContent = 'Enter the n8n webhook URL first.'; return; }
-      msg.className = 'msg'; msg.textContent = 'Loading from ' + url + ' \u2026';
-      fetch(url).then(function(r){
-        if (!r.ok) throw new Error('HTTP ' + r.status + (r.status === 404 ? ' — is the workflow Active?' : ''));
-        return r.json();
-      }).then(function(j){
-        var data = Array.isArray(j) ? {cells: j} : (j && j.data) || null;
-        if (!data) throw new Error('expected {data:{\u2026}} or a JSON array — use ?view=all or ?view=cells');
-        var cells = data.cells || [];
-        var server = {readiness: data.readiness || [], classes: data.classes || [],
-                      capacity: data.capacity || [], actions: data.actions || []};
-        loadData(cells, 'n8n API', server);   // re-renders this tab → re-query the msg node
-        var ok2 = $('dataMsg');
-        ok2.className = 'msg okmsg';
-        var extra = ['readiness','classes','capacity','actions'].filter(function(k){ return server[k].length; })
-                      .map(function(k){ return k + ' (' + server[k].length + ')'; });
-        ok2.textContent = 'Loaded ' + cells.length + ' cell rows' +
-          (extra.length ? ' + ' + extra.join(', ') : ' (no server views in payload — use ?view=all)') + '.';
-      }).catch(function(e){
-        var m = $('dataMsg');
-        m.className = 'msg err';
-        m.textContent = 'API error: ' + e.message +
-          (e instanceof TypeError ? ' \u2014 likely CORS blocked: in n8n open Respond to Webhook \u2192 Response Headers \u2192 add Access-Control-Allow-Origin: * , or paste the JSON instead' : '');
-      });
-    });
-    $('loadSample').addEventListener('click', function(){
-      loadData(makeSampleData(), 'sample data');
-      $('dataMsg').className = 'msg okmsg';
-      $('dataMsg').textContent = 'Sample data loaded.';
-    });
-    $('copySql').addEventListener('click', function(){
-      try { navigator.clipboard.writeText(SQL_SNIPPET); } catch (e){
-        var r = document.createRange(); r.selectNode($('sqlPre'));
-        window.getSelection().removeAllRanges(); window.getSelection().addRange(r);
-      }
-    });
   }
 
   /* ---------------- readiness (paper-generation) + class coverage ---------------- */
@@ -1102,135 +912,526 @@ function makeSampleData(){
       '<i style="width:' + (100*m/t) + '%;background:#fde68a"></i>' +
       '<i style="width:' + (100*h/t) + '%;background:#fca5a5"></i></span>';
   }
-  function renderReadiness(){
-    var el = $('tab-readiness');
-    var rows = readinessRows();
-    var order = {board: 0, class: 1, subject: 2};
-    rows.sort(function(a, b){
-      var l = order[a.lvl] - order[b.lvl];
-      if (l) return l;
-      var c = String(a.class || '').localeCompare(String(b.class || ''), undefined, {numeric: true});
-      if (c) return c;
-      var st = String(a.stream || '').localeCompare(String(b.stream || ''));
-      if (st) return st;
-      return String(a.subject_code || '').localeCompare(String(b.subject_code || ''));
-    });
-    state.lastRd = rows;
-    var cols = [
-      {label:'Scope (board \u2192 class \u2192 subject)', key:'subject_code', render: function(r){
-        if (r.lvl === 'board') return '<span class="scope-t">\ud83c\udfdb ' + esc(r.board || '\u2014') + ' — all classes</span>';
-        if (r.lvl === 'class') return '<span class="scope-c">Class ' + esc(r.class) + '</span>';
-        return '<span class="scope-s">' + esc(r.stream || '') + ' \u00b7 ' + esc(r.subject_code) + '</span>';
-      }},
-      {label:'Chapters', key:'chapters', cls:'num'},
-      {label:'Total', key:'total', cls:'num'},
-      {label:'Usable', key:'usable', cls:'num', render: function(r){ return '<b>' + r.usable + '</b>'; }},
-      {label:'Ideal (healthy)', key:'ideal_healthy', cls:'num'},
-      {label:'Coverage', key:'coverage_pct', cls:'num', render: function(r){ return pctBar(r.coverage_pct); }},
-      {label:'Capacity', key:'capacity_papers', cls:'num', render: function(r){ return (r.capacity_papers == null ? '\u2014' : r.capacity_papers) + ' \ud83d\udcc4'; }},
-      {label:'Tier', key:'tier', render: function(r){ return tierChip(r.tier); }},
-      {label:'Readiness', key:'readiness', cls:'num', render: function(r){ return scoreBar(r.readiness); }},
-      {label:'Dimensions', key:'curriculum_pct', render: function(r){
-        var d = 'cur ' + r.curriculum_pct + '% \u00b7 mk ' + r.marks_score + ' \u00b7 ty ' + r.types_score +
-                ' \u00b7 df ' + r.difficulty_score;
-        if (r.rotation_score != null) d += ' \u00b7 rot ' + r.rotation_score;
-        if (r.zero_cells != null) d += ' \u00b7 ' + r.zero_cells + ' zero cells';
-        return '<span class="dims">' + esc(d) + '</span>';
-      }},
-      {label:'Usable mix', key:'pct_easy', render: mixBar}
-    ];
-    var a = actionsRows();
-    var src = (state.server.readiness && state.server.readiness.length)
-      ? 'n8n <code>readiness</code> view (authoritative — uses coverage_requirements when present)'
-      : 'approximated in the browser from loaded cell rows (default blueprint ' + RD_SLOTS.length + ' slots \u00d7 targets \u00d7 ' + RD_GOALS.healthy + '-paper healthy goal)';
-    var h = '<h2>Paper-generation readiness</h2>' +
-      '<p class="rdnote">Required = blueprint \u00d7 papers, not a wish. ' +
-      'capacity = max mutually-disjoint papers = min over slots of usable \u00f7 per-paper demand. Source: ' + src + '.</p>' +
-      '<div class="panel">' + buildTable('rd-table', cols, rows, {rowClass: function(r){ return r.lvl === 'board' ? 'sec' : ''; }}) + '</div>' +
-      '<h2>What to acquire next</h2><div class="panel">' +
-      buildTable('rd-actions', [
-        {label:'Severity', key:'severity', render: function(r){ return '<span class="chip ' + (r.severity === 'CRITICAL' ? 'bad' : r.severity === 'HIGH' ? 'warn' : 'info') + '">' + esc(r.severity) + '</span>'; }},
-        {label:'Kind', key:'kind'},
-        {label:'Where', key:'where', render: function(r){
-          var w = r.chapter_code || (r.subject_code ? r.subject_code + ' (' + r.class + ')' : '');
-          return esc(w || '\u2014');
-        }},
-        {label:'Slot', key:'slot', render: function(r){
-          return esc((r.question_type || '\u2014') + ' \u00d7 ' + (r.marks != null && r.marks !== '' ? r.marks + 'm' : '?') + (r.difficulty ? ' \u00b7 ' + r.difficulty : ''));
-        }},
-        {label:'Usable', key:'usable', cls:'num'},
-        {label:'Needed', key:'needed', cls:'num'},
-        {label:'Gap', key:'gap', cls:'num', render: function(r){ return '<b>' + r.gap + '</b>'; }},
-        {label:'Recommendation', key:'recommendation'}
-      ], a) + '</div>';
+
+  /* ---------------- Explorer: board → class → stream/subject → scope stats ---------------- */
+  function srcRows(){ return (state.raw && state.raw.length) ? state.raw : state.rows; }
+  function uniqArr(list){ var seen = {}, out = []; list.forEach(function(x){ x = String(x); if (!seen[x]){ seen[x] = 1; out.push(x); } }); return out; }
+  function ckey(r){ return (r['class'] === null || r['class'] === undefined) ? '—' : String(r['class']); }
+  function skey(r){ return r.subject_code || '—'; }
+  function bkey(r){ return r.board || '—'; }
+  function pushNav(o){ state._navq.push(o); return state._navq.length - 1; }
+  function tierOf(cap){
+    if (cap == null) return 'not-ready';
+    return cap >= RD_GOALS.strong ? 'strong' : cap >= RD_GOALS.healthy ? 'healthy' : cap >= RD_GOALS.viable ? 'viable' : 'not-ready';
+  }
+  function scopeMatchNav(r){
+    var n = state.nav;
+    if (n.board && bkey(r) !== String(n.board)) return false;
+    if (n.class && ckey(r) !== String(n.class)) return false;
+    if (n.stream && (!r.subject_code || rdStream(r.subject_code) !== n.stream)) return false;
+    if (n.subject && skey(r) !== String(n.subject)) return false;
+    return true;
+  }
+  function statBox(l, v){
+    return '<div class="stat"><div class="v">' + (v == null || v === '' ? '—' : v) + '</div><div class="l">' + esc(l) + '</div></div>';
+  }
+  function dimRow(label, v){
+    if (v == null) return '<div class="dimb"><span class="dl">' + esc(label) + '</span><span class="db"></span><span class="dv">—</span></div>';
+    var n = +v, col = n < 40 ? '#ef4444' : n < 70 ? '#f59e0b' : '#16a34a';
+    return '<div class="dimb"><span class="dl">' + esc(label) + '</span><span class="db"><i style="width:' + Math.min(100, n) + '%;background:' + col + '"></i></span><span class="dv">' + n.toFixed(1) + '</span></div>';
+  }
+  function scopeCard(r, nav, title, subLabel, subVal){
+    var cov = r ? (+r.coverage_pct || 0) : 0;
+    var h = '<div class="scard" data-navq="' + pushNav(nav) + '"><div class="t">' + title + '</div>';
+    if (r){
+      h += '<div class="kv"><span>' + esc(subLabel) + '</span><b>' + subVal + '</b></div>';
+      h += '<div class="kv"><span>Questions</span><b>' + r.total + '</b></div>';
+      h += '<div class="kv"><span>Usable</span><b>' + r.usable + (r.ideal_healthy ? ' <span class="hint">of ' + r.ideal_healthy + '</span>' : '') + '</b></div>';
+      h += '<div class="kv"><span>Coverage</span><b>' + cov.toFixed(1) + '%</b></div>';
+      h += '<span class="bar" style="width:100%"><i class="' + (cov < 40 ? 'bad' : cov < 70 ? 'warn' : '') + '" style="width:' + Math.min(100, cov) + '%"></i></span>';
+      h += '<div class="kv"><span>Capacity</span><b>' + (r.capacity_papers == null ? '—' : r.capacity_papers + ' 📄') + '</b></div>';
+      h += '<div style="margin-top:9px;display:flex;justify-content:space-between;align-items:center">' + tierChip(r.tier) +
+           '<span class="score">score ' + (r.readiness == null ? '—' : (+r.readiness).toFixed(1)) + '</span></div>';
+    } else {
+      h += '<div class="kv"><span>' + esc(subLabel) + '</span><b>' + subVal + '</b></div><div class="kv"><span>data</span><b>—</b></div>';
+    }
+    return h + '</div>';
+  }
+  function mergeRows(list, stream){
+    if (!list.length) return null;
+    if (list.length === 1) return Object.assign({}, list[0], {stream: list[0].stream || stream, lvl: 'stream'});
+    var o = {lvl: 'stream', stream: stream, board: list[0].board, class: list[0].class};
+    ['chapters','total','with_answer','usable','unused_usable','ideal_healthy','ideal_strong','cells_total','cells_met','zero_cells','cells_any']
+      .forEach(function(k){
+        var v = list.map(function(r){ return r[k]; }).filter(function(x){ return x != null; });
+        o[k] = v.length ? v.reduce(function(a, b){ return a + (+b); }, 0) : null;
+      });
+    ['types_score','marks_score','difficulty_score','rotation_score','readiness','pct_easy','pct_medium','pct_hard','curriculum_pct']
+      .forEach(function(k){
+        var v = list.map(function(r){ return r[k]; }).filter(function(x){ return x != null; });
+        o[k] = v.length ? +(v.reduce(function(a, b){ return a + (+b); }, 0) / v.length).toFixed(1) : null;
+      });
+    var caps = list.map(function(r){ return r.capacity_papers; }).filter(function(v){ return v != null; });
+    o.capacity_papers = caps.length ? Math.min.apply(null, caps) : 0;
+    o.coverage_pct = (o.ideal_healthy && o.usable != null) ? +(100 * o.usable / o.ideal_healthy).toFixed(1) : 0;
+    o.tier = tierOf(o.capacity_papers);
+    return o;
+  }
+  function renderExplorer(){
+    var el = $('tab-explorer');
+    state._navq = [];
+    var n = state.nav;
+    var rd = readinessRows();
+    var boards = uniqArr(rd.filter(function(r){ return r.lvl === 'board'; }).map(function(r){ return r.board || '—'; }));
+    if (!boards.length) boards = ['—'];
+    var h = '';
+    if (boards.length > 1 && !n.board){
+      h += '<h2>Coverage explorer</h2>' +
+        '<p class="rdnote">Tap a board → pick a class → pick a stream or subject. One number matters here: <b>how many complete papers this bank can generate</b>.</p><div class="cards">' +
+        rd.filter(function(r){ return r.lvl === 'board'; }).map(function(r){
+          return scopeCard(r, {board: r.board || '—'}, esc(r.board || '—') + ' <span class="hint">board →</span>', 'Classes',
+                 rd.filter(function(x){ return x.lvl === 'class' && bkey(x) === bkey(r); }).length);
+        }).join('') + '</div>';
+      el.innerHTML = h; wireNav(el); return;
+    }
+    var board = n.board || boards[0];
+    n.board = board;
+    var br = rd.filter(function(r){ return board === '—' || bkey(r) === String(board); });
+    var segs = [{l: esc(board) + (boards.length > 1 ? ' <i>board</i>' : ' · all classes'), o: {board: board}}];
+    if (n.class) segs.push({l: 'Class ' + esc(String(n.class)), o: {board: board, class: n.class}});
+    if (n.stream) segs.push({l: esc(String(n.stream)), o: {board: board, class: n.class, stream: n.stream}});
+    h += '<div class="crumbs">' + segs.map(function(s, i){
+      var t = i === segs.length - 1 && (n.subject || n.all || (n.stream && !n.subject && state.nav.stream)) && i > 1
+        ? '<b>' + s.l + '</b>'
+        : '<a data-navq="' + pushNav(s.o) + '">' + s.l + '</a>';
+      return (i ? ' <i>›</i> ' : '') + t;
+    }).join('') + '</div>';
+
+    if (!n.class){
+      var clsRows = br.filter(function(r){ return r.lvl === 'class'; });
+      if (!clsRows.length){
+        var byCls = {};
+        br.filter(function(r){ return r.lvl === 'subject'; }).forEach(function(r){
+          (byCls[ckey(r)] = byCls[ckey(r)] || []).push(r);
+        });
+        clsRows = Object.keys(byCls).map(function(k){
+          var o = mergeRows(byCls[k], null);
+          if (o){ o.lvl = 'class'; o['class'] = k; }
+          return o;
+        }).filter(Boolean);
+      }
+      clsRows.sort(function(a, b){ return ckey(a).localeCompare(ckey(b), undefined, {numeric: true}); });
+      h += '<h2>Classes</h2><div class="cards">' + clsRows.map(function(r){
+        return scopeCard(r, {board: board, class: ckey(r)}, 'Class ' + esc(ckey(r)) + ' <span class="hint">→</span>', 'Subjects',
+               br.filter(function(x){ return x.lvl === 'subject' && ckey(x) === ckey(r); }).length);
+      }).join('') + '</div>';
+      if (!clsRows.length) h += '<p class="hint">No class rows in the loaded data.</p>';
+    } else if (!n.stream && !n.subject && !n.all){
+      var subs = br.filter(function(r){ return r.lvl === 'subject' && ckey(r) === String(n.class); });
+      var streams = uniqArr(subs.map(function(r){ return r.stream || rdStream(skey(r)); }));
+      h += '<h2>Class ' + esc(String(n.class)) + '</h2>' +
+        '<div class="toolbar" style="margin-bottom:4px"><button class="btn sec" data-navq="' + pushNav({board: board, class: n.class, all: 1}) + '">📊 Class stats →</button></div>';
+      streams.forEach(function(st){
+        var list = subs.filter(function(r){ return (r.stream || rdStream(skey(r))) === st; });
+        var agg = mergeRows(list, st) || {};
+        h += '<div class="streamhead" data-navq="' + pushNav({board: board, class: n.class, stream: st}) + '">' +
+             '<span>🎓 ' + esc(st) + ' <span class="hint">— tap for stream stats</span></span>' +
+             '<span class="s">' + list.length + ' subjects · usable ' + (agg.usable == null ? '—' : agg.usable) +
+             ' · cov ' + (+agg.coverage_pct || 0).toFixed(1) + '% · ' + (agg.capacity_papers == null ? '—' : agg.capacity_papers) + ' 📄</span></div>';
+        h += '<div class="cards">' + list.map(function(r){
+          return scopeCard(r, {board: board, class: n.class, stream: st, subject: skey(r)},
+                 esc(skey(r)) + ' <span class="hint">→</span>', 'Chapters', r.chapters);
+        }).join('') + '</div>';
+      });
+      if (!subs.length) h += '<p class="hint">No subject rows for this class in the loaded data.</p>';
+    } else {
+      h += detailHtml(board, br);
+    }
     el.innerHTML = h;
-    wireSort(el, renderReadiness);
+    wireNav(el);
   }
-
-  function classesRows(){
-    if (state.server.classes && state.server.classes.length) return state.server.classes.slice();
-    var g = {}, order = [];
-    var src = (state.raw && state.raw.length) ? state.raw : state.rows;
-    src.forEach(function(r){
-      var cls = (r.class === null || r.class === undefined) ? '\u2014' : String(r.class);
-      var sub = r.subject_code || '\u2014';
-      var k = cls + '\u0001' + sub;
-      var o = g[k];
-      if (!o){ o = g[k] = {class: cls, subject_code: sub === '\u2014' ? null : sub, chaps: {}, total: 0, usable: 0, answered: 0, unused: 0}; order.push(k); }
-      if (r.chapter_code) o.chaps[r.chapter_code] = 1;
-      o.total += toNum(r.count);
-      o.usable += rdUsable(r);
-      o.answered += r.with_answer != null ? toNum(r.with_answer) : rdUsable(r);
-      if (r.unused != null) o.unused += toNum(r.unused);
-    });
-    var rows = order.map(function(k){
-      var o = g[k];
-      return {board: '', class: o.class, stream: o.subject_code ? rdStream(o.subject_code) : null,
-        subject_code: o.subject_code, chapters: Object.keys(o.chaps).length, total: o.total,
-        with_answer: o.answered, usable: o.usable, unused: o.unused, unused_usable: null,
-        pct_usable: o.total ? +(100 * o.usable / o.total).toFixed(1) : 0};
-    });
-    var roll = {};
+  function detailHtml(board, br){
+    var n = state.nav;
+    var row = null;
+    if (n.subject) row = br.filter(function(r){ return r.lvl === 'subject' && ckey(r) === String(n.class) && skey(r) === String(n.subject); })[0];
+    else if (n.all) row = br.filter(function(r){ return r.lvl === 'class' && ckey(r) === String(n.class); })[0];
+    else row = mergeRows(br.filter(function(r){ return r.lvl === 'subject' && ckey(r) === String(n.class) && (r.stream || rdStream(skey(r))) === n.stream; }), n.stream);
+    var title = n.subject ? 'Class ' + esc(String(n.class)) + ' · ' + esc(String(n.subject))
+              : n.all ? 'Class ' + esc(String(n.class)) + ' — all subjects'
+              : 'Class ' + esc(String(n.class)) + ' · ' + esc(String(n.stream));
+    var h = '<h2>' + title + ' ' + (row ? tierChip(row.tier) : '') + '</h2>';
+    if (!row) return h + '<p class="hint">No readiness data for this scope.</p>';
+    h += '<div class="strip">' +
+      statBox('Questions', row.total) + statBox('Usable', row.usable) + statBox('Never served', row.unused_usable) +
+      statBox('Chapters', row.chapters) + statBox('Coverage', ((+row.coverage_pct || 0).toFixed(1)) + '%') +
+      statBox('Capacity', (row.capacity_papers == null ? '—' : row.capacity_papers) + ' 📄') +
+      statBox('Readiness', row.readiness == null ? '—' : (+row.readiness).toFixed(1)) + '</div>';
+    h += '<div class="panel"><h3 style="margin-top:0">Readiness dimensions</h3>' +
+      dimRow('Curriculum cells', row.curriculum_pct) + dimRow('Marks bands', row.marks_score) +
+      dimRow('Question types', row.types_score) + dimRow('Difficulty balance', row.difficulty_score) +
+      dimRow('Rotation (fresh)', row.rotation_score) +
+      '<div style="margin-top:8px;font-size:12px;color:#556">Usable mix ' + mixBar(row) +
+      ' <span class="hint">target 30 / 40 / 30' +
+      (row.cells_met != null && row.cells_total ? ' · cells ≥ floor: ' + row.cells_met + '/' + row.cells_total : '') +
+      (row.zero_cells != null ? ' · zero cells: ' + row.zero_cells : '') + '</span></div></div>';
+    h += capacityBlock();
+    h += heatBlock();
+    if (n.chapter) h += topicBlock();
+    return h;
+  }
+  function computeNeeds(rows){
+    var g = {};
     rows.forEach(function(r){
-      var o = roll[r.class] || (roll[r.class] = {board: r.board, class: r.class, subject_code: null, chaps: 0, total: 0, with_answer: 0, usable: 0, unused: 0});
-      o.chaps += r.chapters; o.total += r.total; o.with_answer += r.with_answer; o.usable += r.usable; o.unused += r.unused;
+      var k = bkey(r) + ' | ' + ckey(r) + ' | ' + skey(r);
+      var o = g[k] || (g[k] = {board: r.board || '—', class: ckey(r), subject_code: skey(r), sk: {}, total: 0, usable: 0});
+      o.total += toNum(r.count);
+      var u = rdUsable(r); o.usable += u;
+      var k2 = (r.question_type || '') + ' | ' + toNum(r.marks);
+      o.sk[k2] = (o.sk[k2] || 0) + u;
     });
-    Object.keys(roll).forEach(function(c){
-      var o = roll[c];
-      rows.push({board: o.board, class: c, stream: null, subject_code: null, chapters: o.chaps, total: o.total,
-        with_answer: o.with_answer, usable: o.usable, unused: o.unused, unused_usable: null,
-        pct_usable: o.total ? +(100 * o.usable / o.total).toFixed(1) : 0});
+    var out = [];
+    Object.keys(g).forEach(function(k){
+      var o = g[k], cap = Infinity;
+      var mine = [];
+      RD_SLOTS.forEach(function(sl){
+        var have = o.sk[(sl.t + ' | ' + sl.m)] || 0;
+        var need = sl.p * RD_GOALS.healthy;
+        var sup = Math.floor(have / sl.p);
+        cap = Math.min(cap, sup);
+        var row = {board: o.board, class: o.class, subject_code: o.subject_code, stream: rdStream(o.subject_code),
+          question_type: sl.t, marks: sl.m, per_paper: sl.p, usable: have, needed_for_healthy: need,
+          short_for_healthy: Math.max(0, need - have), papers_supported: sup};
+        row.is_binding = false;
+        mine.push(row); out.push(row);
+      });
+      mine.forEach(function(r){ r.is_binding = r.papers_supported === cap; });
     });
-    rows.sort(function(a, b){ return String(a.class).localeCompare(String(b.class), undefined, {numeric:true}) || ((a.subject_code === null) ? -1 : (b.subject_code === null ? 1 : String(a.subject_code).localeCompare(String(b.subject_code)))) || 0; });
-    return rows;
+    return out;
   }
-  function renderClasses(){
-    var el = $('tab-classes');
-    var rows = classesRows();
-    state.lastClasses = rows;
-    var cols = [
-      {label:'Class', key:'class', render: function(r){ return r.subject_code === null || r.subject_code === undefined ? '<span class="scope-t">Class ' + esc(r.class) + ' \u00b7 ALL</span>' : 'Class ' + esc(r.class); }},
-      {label:'Stream', key:'stream', render: function(r){ return esc(r.stream || '\u2014'); }},
-      {label:'Subject', key:'subject_code', render: function(r){ return esc(r.subject_code === null || r.subject_code === undefined ? 'all subjects' : r.subject_code); }},
-      {label:'Chapters', key:'chapters', cls:'num'},
-      {label:'Total', key:'total', cls:'num'},
-      {label:'With answer', key:'with_answer', cls:'num'},
-      {label:'Usable', key:'usable', cls:'num', render: function(r){ return '<b>' + r.usable + '</b>'; }},
-      {label:'Unused', key:'unused', cls:'num'},
-      {label:'Usable %', key:'pct_usable', cls:'num', render: function(r){ return pctBar(r.pct_usable); }},
-      {label:'Status', key:'pct_usable', render: function(r){
-        var p = +r.pct_usable || 0;
-        return r.total === 0 ? '<span class="chip bad">Empty</span>' : p < 40 ? '<span class="chip bad">Thin</span>' : p < 70 ? '<span class="chip warn">Growing</span>' : '<span class="chip ok">Healthy</span>';
-      }}
-    ];
-    el.innerHTML = '<h2>Class-wise coverage</h2>' +
-      '<p class="rdnote">Usable % = share of questions the paper builder can actually serve. Rollup rows ("all subjects") lead each class. ' +
-      (state.server.classes && state.server.classes.length ? 'From the n8n <code>classes</code> view.' : 'Approximated from loaded cell rows.') + '</p>' +
-      '<div class="panel">' + buildTable('cls-table', cols, rows) + '</div>';
-    wireSort(el, renderClasses);
+  function capacityRowsFor(){
+    var n = state.nav;
+    if (state.server.capacity && state.server.capacity.length){
+      return state.server.capacity.filter(function(r){
+        if (n.board && bkey(r) !== String(n.board)) return false;
+        if (n.class && ckey(r) !== String(n.class)) return false;
+        if (n.stream && rdStream(r.subject_code) !== n.stream) return false;
+        if (n.subject && skey(r) !== String(n.subject)) return false;
+        return true;
+      });
+    }
+    return computeNeeds(srcRows().filter(scopeMatchNav));
+  }
+  function shortSlot(sl){
+    var t = (sl && sl.t != null) ? String(sl.t) : String(sl == null ? '—' : sl);
+    return t.replace('Assertion-Reason','A-R').replace('Very Short Answer','VSA')
+      .replace('Short Answer','SA').replace('Case-Based','Case').replace('Long Answer','LA');
+  }
+  function hcellColor(u){ return u <= 0 ? '#fca5a5' : u === 1 ? '#fdba74' : u === 2 ? '#fde68a' : u <= 4 ? '#d9f99d' : '#86efac'; }
+  function capacityBlock(){
+    var rows = capacityRowsFor().slice()
+      .sort(function(a, b){ return (b.short_for_healthy || 0) - (a.short_for_healthy || 0); });
+    if (!rows.length) return '';
+    var solo = !!state.nav.subject;
+    var h = '<div class="panel"><h3 style="margin-top:0">Which slots gate the papers <span class="hint">— capacity = what the worst slot allows</span></h3>' +
+      '<table class="grid"><thead><tr><th>Slot</th>' + (solo ? '' : '<th>Scope</th>') +
+      '<th class="num">Per paper</th><th class="num">Usable</th><th class="num">Papers it fills</th><th class="num">Add for healthy</th></tr></thead><tbody>';
+    rows.slice(0, 7).forEach(function(r){
+      h += '<tr><td>' + esc(shortSlot(r.question_type)) + ' × ' + r.marks + 'm</td>' +
+        (solo ? '' : '<td>' + esc(ckey(r)) + ' · ' + esc(skey(r)) + '</td>') +
+        '<td class="num">' + r.per_paper + '</td><td class="num">' + (r.usable || 0) + '</td>' +
+        '<td class="num">' + (r.papers_supported == null ? '—' : r.papers_supported) +
+        (r.is_binding ? ' <span class="chip bad">binds</span>' : '') + '</td>' +
+        '<td class="num"><b>' + (r.short_for_healthy || 0) + '</b></td></tr>';
+    });
+    return h + '</tbody></table></div>';
+  }
+  function heatBlock(){
+    var rows = srcRows().filter(scopeMatchNav);
+    if (!rows.length) return '';
+    var chs = {}, cells = {};
+    rows.forEach(function(r){
+      var ck = r.chapter_code || r.chapter_name || '?';
+      var o = chs[ck] || (chs[ck] = {code: ck, name: r.chapter_name || r.chapter || ck, total: 0, usable: 0, topics: {}});
+      o.total += toNum(r.count);
+      var u = rdUsable(r); o.usable += u;
+      if (r.topic_name || r.topic){ var tk = r.topic_name || r.topic; o.topics[tk] = (o.topics[tk] || 0) + u; }
+      var d = rdNorm(r.difficulty_norm || r.difficulty);
+      var k = ck + ' | ' + (r.question_type || '') + ' | ' + toNum(r.marks) + ' | ' + d;
+      var c = cells[k] || (cells[k] = {usable: 0, unused: 0});
+      c.usable += u;
+      if (r.unused != null) c.unused += toNum(r.unused);
+    });
+    var h = '<div class="panel"><h3 style="margin-top:0">Chapter × slot <span class="hint">number = usable in the WORST difficulty of that cell (min of easy/medium/hard) · tap a chapter row for its topics</span></h3>' +
+      '<div class="legend"><span><i style="background:#fca5a5"></i>0</span><span><i style="background:#fdba74"></i>1</span><span><i style="background:#fde68a"></i>2</span><span><i style="background:#d9f99d"></i>3–4</span><span><i style="background:#86efac"></i>5+</span><span>floor target 3</span></div>' +
+      '<div style="overflow:auto"><table class="grid"><thead><tr><th>Chapter</th>' +
+      RD_SLOTS.map(function(sl){ return '<th class="num">' + esc(shortSlot(sl)) + '</th>'; }).join('') +
+      '<th class="num">Usable</th><th class="num">Cells ≥3</th></tr></thead><tbody>';
+    var heatOut = [];
+    Object.keys(chs).sort().forEach(function(ck){
+      var o = chs[ck];
+      var met = 0, line = {chapter: o.code + ' - ' + o.name};
+      h += '<tr class="chrow" data-ch="' + esc(ck) + '"><td style="cursor:pointer"><b>' + esc(o.code) + '</b> · ' + esc(o.name) +
+           barHtml(o.total, Math.max.apply(null, [1].concat(Object.keys(chs).map(function(k2){ return chs[k2].total; })))) + '</td>';
+      RD_SLOTS.forEach(function(sl){
+        var vals = ['easy','medium','hard'].map(function(d){ return cells[ck + ' | ' + sl.t + ' | ' + sl.m + ' | ' + d] || {usable: 0, unused: 0}; });
+        var mins = Math.min(vals[0].usable, vals[1].usable, vals[2].usable);
+        var unusedSum = vals[0].unused + vals[1].unused + vals[2].unused;
+        if (mins >= 3) met++;
+        line[shortSlot(sl) + ' x ' + sl.m] = mins;
+        h += '<td class="hc" style="background:' + hcellColor(mins) + '" title="' +
+             esc(sl.t + ' × ' + sl.m + 'm — easy ' + vals[0].usable + ' / medium ' + vals[1].usable + ' / hard ' + vals[2].usable + ' · unused ' + unusedSum) + '">' + mins + '</td>';
+      });
+      h += '<td class="num">' + o.usable + '</td><td class="num">' + met + '/' + (RD_SLOTS.length * 3) + '</td></tr>';
+      heatOut.push(line);
+    });
+    h += '</tbody></table></div></div>';
+    state.lastHeat = heatOut;
+    return h;
+  }
+  function topicBlock(){
+    var ck = state.nav.chapter;
+    var rows = srcRows().filter(function(r){ return scopeMatchNav(r) && String(r.chapter_code || r.chapter_name || '?') === String(ck); });
+    var t = {};
+    rows.forEach(function(r){
+      var k = r.topic_name || r.topic || '—';
+      var o = t[k] || (t[k] = {total: 0, usable: 0});
+      o.total += toNum(r.count); o.usable += rdUsable(r);
+    });
+    var keys = Object.keys(t).sort();
+    if (!keys.length) return '';
+    var max = Math.max.apply(null, keys.map(function(k){ return t[k].usable; }).concat([1]));
+    var h = '<div class="panel"><h3 style="margin-top:0">Topics in ' + esc(String(ck)) +
+      ' <button class="btn ghost" data-chclose style="float:right;font-size:11px">close</button></h3>' +
+      '<table class="grid"><tbody>';
+    keys.forEach(function(k){
+      var o = t[k];
+      h += '<tr><td style="width:320px">' + esc(k) + '</td><td class="num">' + o.usable + ' / ' + o.total + '</td>' +
+        '<td><span class="bar" style="width:100%"><i style="width:' + Math.round(100 * o.usable / max) + '%"></i></span></td></tr>';
+    });
+    return h + '</tbody></table></div>';
+  }
+  function unmappedRows(){
+    var srv = (state.server.actions || []).filter(function(a){ return a.kind === 'unmapped_volume'; });
+    if (srv.length) return srv;
+    var acc = {};
+    srcRows().forEach(function(r){
+      var u = rdUsable(r); if (!u) return;
+      var mt = toNum(r.marks);
+      var ok = RD_SLOTS.some(function(sl){ return sl.t === (r.question_type || '') && sl.m === mt; });
+      if (ok) return;
+      var k = ckey(r) + ' | ' + skey(r) + ' | ' + (r.question_type || '?') + ' | ' + mt;
+      var o = acc[k] || (acc[k] = {'class': ckey(r), subject_code: skey(r), question_type: r.question_type || '?', marks: mt, n: 0});
+      o.n += u;
+    });
+    return Object.keys(acc).map(function(k){ return acc[k]; }).sort(function(a, b){ return b.n - a.n; }).slice(0, 40);
+  }
+  function wireNav(el){
+    el.querySelectorAll('[data-navq]').forEach(function(b){
+      b.addEventListener('click', function(ev){
+        if (ev.target.closest && ev.target.closest('[data-chclose]')) return;
+        state.nav = Object.assign({}, state._navq[+b.getAttribute('data-navq')]);
+        renderExplorer();
+      });
+    });
+    el.querySelectorAll('[data-chclose]').forEach(function(b){
+      b.addEventListener('click', function(){
+        state.nav = Object.assign({}, state.nav, {chapter: null});
+        renderExplorer();
+      });
+    });
+    el.querySelectorAll('.chrow').forEach(function(tr){
+      tr.addEventListener('click', function(){
+        var ck = tr.getAttribute('data-ch');
+        state.nav = Object.assign({}, state.nav, {chapter: state.nav.chapter === ck ? null : ck});
+        renderExplorer();
+      });
+    });
+  }
+  /* ---------------- Plan: what to add / what's lacking ---------------- */
+  function renderPlan(){
+    var el = $('tab-plan');
+    var src = (state.server.capacity && state.server.capacity.length) ? state.server.capacity : computeNeeds(srcRows());
+    var needs = src.filter(function(r){ return (r.short_for_healthy || 0) > 0; })
+      .sort(function(a, b){ return (b.short_for_healthy || 0) - (a.short_for_healthy || 0); });
+    state.lastPlan = needs.slice(0, 80);
+    var work = actionsRows();
+    var sev = state.planSev || 'ALL';
+    var fwork = sev === 'ALL' ? work : work.filter(function(a){ return a.severity === sev; });
+    var un = unmappedRows();
+    var addTot = needs.reduce(function(a, r){ return a + (+r.short_for_healthy || 0); }, 0);
+    var unTot = un.reduce(function(a, r){ return a + (+((r.usable != null ? r.usable : r.n)) || 0); }, 0);
+    var h = '<h2>The plan — what to add, what’s lacking</h2>' +
+      '<p class="rdnote">Goal: every subject can build <b>' + RD_GOALS.healthy + ' complete, disjoint papers</b> from its own usable pool. ' +
+      '“Healthy” numbers assume ' + (state.server.capacity ? 'the server capacity view' : 'the ' + RD_SLOTS.length + '-slot reference blueprint') + '; exact per-subject verdicts come from the n8n endpoint.</p>' +
+      '<div class="strip">' + statBox('Questions to add (all scopes)', addTot) +
+      statBox('Slots below target', needs.length) + statBox('Usable stuck on unmapped labels', unTot) + '</div>';
+    h += '<h3>1 · Blueprint needs — have vs want</h3>';
+    if (state.lastPlan.length){
+      h += '<div class="panel"><table class="grid"><thead><tr><th>Scope</th><th>Slot</th><th class="num">Per paper</th><th class="num">Have</th><th class="num">Need</th><th class="num">Add</th><th style="width:200px"></th></tr></thead><tbody>';
+      state.lastPlan.forEach(function(r){
+        var have = +r.usable || 0, need = +r.needed_for_healthy || 0;
+        var pc = need ? Math.min(100, Math.round(100 * have / need)) : 100;
+        h += '<tr><td>' + esc(ckey(r)) + ' · ' + esc(skey(r)) + (r.stream ? ' <span class="hint">' + esc(r.stream) + '</span>' : '') + '</td>' +
+          '<td>' + esc(shortSlot(r.question_type)) + ' × ' + r.marks + 'm' + (r.is_binding ? ' <span class="chip bad">binds</span>' : '') + '</td>' +
+          '<td class="num">' + (r.per_paper == null ? '—' : r.per_paper) + '</td><td class="num">' + have + '</td><td class="num">' + need + '</td>' +
+          '<td class="num"><b>+' + (+r.short_for_healthy || 0) + '</b></td>' +
+          '<td><span class="bar" style="width:100%"><i class="' + (pc < 40 ? 'bad' : pc < 70 ? 'warn' : '') + '" style="width:' + pc + '%"></i></span></td></tr>';
+      });
+      h += '</tbody></table>' + (needs.length > state.lastPlan.length ? '<p class="hint">+ ' + (needs.length - state.lastPlan.length) + ' more rows trimmed — open the exact scope in Explorer or export CSV.</p>' : '') + '</div>';
+    } else {
+      h += '<div class="panel"><span class="chip ok">Every blueprint slot meets the healthy target 🎉</span></div>';
+    }
+    var sevs = ['ALL','CRITICAL','HIGH','MEDIUM','LOW'];
+    h += '<h3>2 · Work list — exact gaps, worst first</h3><div class="panel">' +
+      '<div class="sevfilter">' + sevs.map(function(x){ return '<button data-sev="' + x + '" class="' + (sev === x ? 'on' : '') + '">' + x + '</button>'; }).join('') + '</div>' +
+      '<table class="grid"><thead><tr><th>Severity</th><th>Kind</th><th>Where</th><th>Slot</th><th class="num">Have</th><th class="num">Need</th><th class="num">Gap</th><th>Do this</th></tr></thead><tbody>';
+    fwork.forEach(function(a){
+      h += '<tr><td><span class="chip ' + (a.severity === 'CRITICAL' ? 'bad' : a.severity === 'HIGH' ? 'warn' : 'info') + '">' + esc(a.severity) + '</span></td>' +
+        '<td>' + esc(a.kind) + '</td>' +
+        '<td>' + esc(a.chapter_code || (ckey(a) + ' · ' + skey(a))) + (a.chapter ? ' — ' + esc(a.chapter) : '') + '</td>' +
+        '<td>' + esc(shortSlot({t: a.question_type || '—'}) + ' × ' + (a.marks != null ? a.marks + 'm' : '?') + (a.difficulty ? ' · ' + esc(a.difficulty) : '')) + '</td>' +
+        '<td class="num">' + (a.usable == null ? '—' : a.usable) + '</td><td class="num">' + (a.needed == null ? '—' : a.needed) + '</td>' +
+        '<td class="num"><b>' + (a.gap == null ? '—' : a.gap) + '</b></td>' +
+        '<td class="hint" style="font-size:11.5px">' + esc(a.recommendation) + '</td></tr>';
+    });
+    if (!fwork.length) h += '<tr><td colspan="8" class="hint">Nothing at this severity.</td></tr>';
+    h += '</tbody></table></div>';
+    h += '<h3>3 · Taxonomy cleanup</h3><div class="panel">' +
+      '<p class="hint" style="margin-top:0">Usable questions whose (type × marks) label matches no blueprint slot — the generator can never pick them. Relabel in <code>subject_config</code> or add a row to <code>coverage_requirements</code>.</p>';
+    if (un.length){
+      h += '<table class="grid"><thead><tr><th>Scope</th><th>Label</th><th class="num">Usable sitting there</th><th>Fix</th></tr></thead><tbody>' +
+        un.map(function(u){ return '<tr><td>' + esc(ckey(u)) + ' · ' + esc(skey(u)) + '</td><td><b>' + esc(shortSlot({t: u.question_type || '?'})) + ' × ' + esc(u.marks != null ? u.marks : '?') + 'm</b></td>' +
+          '<td class="num">' + esc(u.usable != null ? u.usable : u.n) + '</td><td class="hint">' + esc(u.recommendation || 'normalize the label or register the slot') + '</td></tr>'; }).join('') +
+        '</tbody></table>';
+    } else {
+      h += '<span class="chip ok">All usable questions map to a blueprint slot</span>';
+    }
+    h += '</div>';
+    el.innerHTML = h;
+    el.querySelectorAll('[data-sev]').forEach(function(b){
+      b.addEventListener('click', function(){ state.planSev = b.getAttribute('data-sev'); renderPlan(); });
+    });
   }
 
-  /* ---------------- CSV export ---------------- */
+  /* ---------------- Data tab ---------------- */
+  var SQL_SNIPPET =
+"-- Cell-level export for this page — question_versions has every dimension,\n" +
+"-- so no joins are needed. (This is the ?view=cells query in the n8n\n" +
+"-- workflow mytst-coverage-backend.n8n.json.)\n" +
+"-- Labels to check first: run ?view=health to see your real status /\n" +
+"-- question_type / difficulty values and edit the filters to match.\n" +
+"SELECT board, class, subject_code, chapter_code, chapter, topic,\n" +
+"       question_type, marks, difficulty,\n" +
+"       count(*)::int AS count,\n" +
+"       count(*) FILTER (WHERE answer IS NOT NULL AND answer <> '')::int AS with_answer,\n" +
+"       count(*) FILTER (WHERE times_used = 0)::int AS unused,\n" +
+"       count(*) FILTER (WHERE status = 'valid'\n" +
+"                         AND answer IS NOT NULL AND answer <> '')::int AS usable\n" +
+"FROM question_versions\n" +
+"GROUP BY board, class, subject_code, chapter_code, chapter, topic,\n" +
+"         question_type, marks, difficulty\n" +
+"ORDER BY chapter_code, topic, question_type, marks, difficulty;";
+
+  function renderData(){
+    var el = $('tab-data');
+    el.innerHTML =
+      '<h2>Load your own data</h2>' +
+      '<div class="panel">' +
+        '<div class="toolbar" style="margin-bottom:10px">' +
+          '<label style="display:flex;align-items:center;gap:6px">n8n endpoint ' +
+          '<input type="text" id="apiUrl" style="width:400px;padding:5px 8px;border:1px solid var(--line);border-radius:6px;font:inherit" ' +
+          'value="https://n8n.mytst.cloud/webhook/mytst-coverage?view=all" placeholder="https://n8n.mytst.cloud/webhook/mytst-coverage?view=all"></label>' +
+          '<button class="btn" id="loadApi">Load from n8n</button>' +
+          '<span class="hint">use <code>?view=all</code> (matrix + readiness + classes + actions) or <code>?view=cells</code>; filters: <code>&amp;class=11&amp;subject=ACC</code></span>' +
+        '</div>' +
+        '<p class="hint">…or paste the query output as <b>CSV</b> (with header row) or <b>JSON</b> (array of objects — e.g. straight from n8n / pgAdmin / DBeaver "Copy as JSON") and click <b>Load pasted data</b>.</p>' +
+        '<textarea id="pasteBox" placeholder="chapter_code,chapter_name,topic_name,question_type,difficulty,marks,count,with_answer,needs_review,with_diagram&#10;CH01,Number Systems,Real Numbers,MCQ,Easy,1,12,10,1,2"></textarea>' +
+        '<div class="toolbar" style="margin-top:10px">' +
+          '<button class="btn" id="loadPaste">Load pasted data</button>' +
+          '<button class="btn sec" id="loadSample">Load sample data</button>' +
+        '</div>' +
+        '<div class="msg" id="dataMsg"></div>' +
+      '</div>' +
+      '<div class="gridcols">' +
+        '<div class="panel"><h2 style="margin-top:0">Expected columns</h2>' +
+          '<table class="grid"><thead><tr><th>Column</th><th>Required</th><th>Notes</th></tr></thead><tbody>' +
+          '<tr><td>chapter_code</td><td>yes</td><td>row identity; falls back to chapter_name</td></tr>' +
+          '<tr><td>chapter_name</td><td>yes</td><td></td></tr>' +
+          '<tr><td>topic_name</td><td>no</td><td>enables topic drill-down</td></tr>' +
+          '<tr><td>question_type</td><td>no</td><td>MCQ / Short / Long / Case-Based …</td></tr>' +
+          '<tr><td>difficulty</td><td>no</td><td>Easy / Medium / Hard (any labels)</td></tr>' +
+          '<tr><td>marks</td><td>no</td><td>numeric preferred</td></tr>' +
+          '<tr><td>count</td><td>no</td><td>questions in the cell; defaults to 1 if omitted (question-level rows)</td></tr>' +
+          '<tr><td>with_answer</td><td>no</td><td>quality flag</td></tr>' +
+          '<tr><td>needs_review</td><td>no</td><td>quality flag</td></tr>' +
+          '<tr><td>with_diagram</td><td>no</td><td>quality flag</td></tr>' +
+          '<tr><td>board / class / subject_code</td><td>no</td><td>enables the Explorer drill-down</td></tr>' +
+          '<tr><td>usable / unused</td><td>no</td><td>readiness + plan math; falls back to with_answer / count</td></tr>' +
+          '</tbody></table>' +
+          '<p class="hint">Common aliases are auto-detected (type/qtype, level, questions/total, answered …). Rows with count = 0 are kept — they show up as gaps.</p>' +
+        '</div>' +
+        '<div class="panel"><h2 style="margin-top:0">Coverage query (draft)</h2>' +
+          '<pre id="sqlPre">' + esc(SQL_SNIPPET) + '</pre>' +
+          '<button class="btn ghost" id="copySql">Copy SQL</button>' +
+          '<p class="hint">Placeholders marked &lt;&lt;…&gt;&gt; still need your real column names — see coverage_queries.sql.</p>' +
+        '</div>' +
+      '</div>';
+
+    $('loadPaste').addEventListener('click', function(){
+      var msg = $('dataMsg');
+      try {
+        var raw = parseInput($('pasteBox').value);
+        if (!raw.length){ msg.className = 'msg err'; msg.textContent = 'Nothing to parse — paste CSV or JSON first.'; return; }
+        loadData(raw, 'pasted data');   // re-renders the Data tab → old msg node is detached
+        var ok2 = $('dataMsg');         // re-query the fresh node
+        ok2.className = 'msg okmsg';
+        ok2.textContent = 'Loaded ' + raw.length + ' rows → ' + state.agg.chapters.length + ' chapters, ' + state.agg.total + ' questions.';
+      } catch (e){
+        msg.className = 'msg err';
+        msg.textContent = 'Parse error: ' + e.message;
+      }
+    });
+    $('loadApi').addEventListener('click', function(){
+      var url = $('apiUrl').value.trim();
+      var msg = $('dataMsg');
+      if (!url){ msg.className = 'msg err'; msg.textContent = 'Enter the n8n webhook URL first.'; return; }
+      msg.className = 'msg'; msg.textContent = 'Loading from ' + url + ' \u2026';
+      fetch(url).then(function(r){
+        if (!r.ok) throw new Error('HTTP ' + r.status + (r.status === 404 ? ' — is the workflow Active?' : ''));
+        return r.json();
+      }).then(function(j){
+        var data = Array.isArray(j) ? {cells: j} : (j && j.data) || null;
+        if (!data) throw new Error('expected {data:{\u2026}} or a JSON array — use ?view=all or ?view=cells');
+        var cells = data.cells || [];
+        var server = {readiness: data.readiness || [], classes: data.classes || [],
+                      capacity: data.capacity || [], actions: data.actions || []};
+        loadData(cells, 'n8n API', server);   // re-renders this tab → re-query the msg node
+        var ok2 = $('dataMsg');
+        ok2.className = 'msg okmsg';
+        var extra = ['readiness','classes','capacity','actions'].filter(function(k){ return server[k].length; })
+                      .map(function(k){ return k + ' (' + server[k].length + ')'; });
+        ok2.textContent = 'Loaded ' + cells.length + ' cell rows' +
+          (extra.length ? ' + ' + extra.join(', ') : ' (no server views in payload — use ?view=all)') + '.';
+      }).catch(function(e){
+        var m = $('dataMsg');
+        m.className = 'msg err';
+        m.textContent = 'API error: ' + e.message +
+          (e instanceof TypeError ? ' \u2014 likely CORS blocked: in n8n open Respond to Webhook \u2192 Response Headers \u2192 add Access-Control-Allow-Origin: * , or paste the JSON instead' : '');
+      });
+    });
+    $('loadSample').addEventListener('click', function(){
+      loadData(makeSampleData(), 'sample data');
+      $('dataMsg').className = 'msg okmsg';
+      $('dataMsg').textContent = 'Sample data loaded.';
+    });
+    $('copySql').addEventListener('click', function(){
+      try { navigator.clipboard.writeText(SQL_SNIPPET); } catch (e){
+        var r = document.createRange(); r.selectNode($('sqlPre'));
+        window.getSelection().removeAllRanges(); window.getSelection().addRange(r);
+      }
+    });
+  }
+
   function csvCell(v){
     var s = String(v === null || v === undefined ? '' : v);
     return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
@@ -1249,66 +1450,53 @@ function makeSampleData(){
     });
     download(name, lines.join('\n'));
   }
+
   function exportCSV(){
-    var lines = [];
-    if (state.active === 'overview'){
-      var cols = overviewCols();
-      lines.push(cols.map(function(c){ return csvCell(c.label); }).join(','));
-      overviewRows().forEach(function(r){
-        lines.push(cols.map(function(c){
-          var v = r[c.key];
-          if (c.key === 'total') v = r.total;
-          return csvCell(typeof v === 'object' ? '' : v);
-        }).join(','));
+    if (state.active === 'explorer'){
+      if (state.lastHeat && state.lastHeat.length && state.nav.subject != null || state.lastHeat && state.lastHeat.length){
+        var cols = ['chapter'].concat(Object.keys(state.lastHeat[0]).filter(function(k){ return k !== 'chapter'; }));
+        exportObj(state.lastHeat, cols, 'chapter_slot_minima.csv');
+      } else {
+        exportObj(readinessRows(), ['lvl','board','class','stream','subject_code','chapters','total','usable','unused_usable','cells_met','cells_total','ideal_healthy','coverage_pct','capacity_papers','tier','curriculum_pct','readiness'], 'readiness_scopes.csv');
+      }
+    } else if (state.active === 'plan'){
+      var lines = ['section,scope,slot,per_paper,have,need,add_or_gap,severity,detail'];
+      (state.lastPlan || []).forEach(function(r){
+        lines.push(['need', ckey(r) + ' ' + skey(r), shortSlot({t: r.question_type || '?'}) + ' x ' + r.marks, r.per_paper, r.usable, r.needed_for_healthy, r.short_for_healthy, '', r.is_binding ? 'binds' : ''].map(csvCell).join(','));
       });
-      download('chapter_summary.csv', lines.join('\n'));
-    } else if (state.active === 'readiness'){
-      exportObj(state.lastRd || [], ['lvl','board','class','stream','subject_code','chapters','total','usable',
-        'unused_usable','ideal_healthy','ideal_strong','coverage_pct','capacity_papers','tier','cells_total',
-        'cells_met','zero_cells','curriculum_pct','marks_score','types_score','difficulty_score',
-        'rotation_score','readiness','pct_easy','pct_medium','pct_hard'], 'readiness.csv');
-    } else if (state.active === 'classes'){
-      exportObj(state.lastClasses || [], ['board','class','stream','subject_code','chapters','total',
-        'with_answer','usable','unused','unused_usable','pct_usable'], 'class_coverage.csv');
+      actionsRows().forEach(function(a){
+        lines.push(['work', a.chapter_code || (ckey(a) + ' ' + skey(a)), (a.question_type || '') + ' x ' + (a.marks != null ? a.marks : ''), '', a.usable == null ? '' : a.usable, a.needed == null ? '' : a.needed, a.gap, a.severity, a.recommendation].map(csvCell).join(','));
+      });
+      unmappedRows().forEach(function(u){
+        lines.push(['unmapped', ckey(u) + ' ' + skey(u), shortSlot({t: u.question_type || '?'}) + ' x ' + u.marks, '', (u.usable != null ? u.usable : u.n), '', '', 'HIGH', 'normalize label or register slot in coverage_requirements'].map(csvCell).join(','));
+      });
+      download('acquisition_plan.csv', lines.join('\n'));
+    } else if (state.active === 'chapters'){
+      var cols2 = overviewCols();
+      var ls = [cols2.map(function(c){ return csvCell(c.label); }).join(',')];
+      overviewRows().forEach(function(r){
+        ls.push(cols2.map(function(c){ return csvCell(typeof r[c.key] === 'object' ? (r[c.key].chapters || '') : r[c.key]); }).join(','));
+      });
+      download('chapter_summary.csv', ls.join('\n'));
     } else if (state.active === 'matrix'){
       var pv = buildPivot(state.rows, state.pivot.rowDim, state.pivot.colDim);
-      lines.push([state.pivot.rowDim].concat(pv.cols, ['Total']).map(csvCell).join(','));
+      var ls2 = [[state.pivot.rowDim].concat(pv.cols, ['Total']).map(csvCell).join(',')];
       pv.rows.forEach(function(r){
-        lines.push([r.label].concat(pv.cols.map(function(c){ return r.cells[c] || 0; }), [r.total]).map(csvCell).join(','));
+        ls2.push([r.label].concat(pv.cols.map(function(c){ return r.cells[c] || 0; }), [r.total]).map(csvCell).join(','));
       });
-      download('coverage_matrix.csv', lines.join('\n'));
-    } else if (state.active === 'topics'){
-      var a = state.agg;
-      lines.push(['chapter','topic','questions'].concat(a.difficulties, a.types, ['answers_pct','needs_review']).map(csvCell).join(','));
-      a.topics.forEach(function(t){
-        lines.push([t.chapterCode + ' ' + t.chapterName, t.name, t.total]
-          .concat(a.difficulties.map(function(d){ return t.byDifficulty[d] || 0; }))
-          .concat(a.types.map(function(tp){ return t.byType[tp] || 0; }))
-          .concat([t.total ? Math.round(100*t.with_answer/t.total) : '', t.needs_review])
-          .map(csvCell).join(','));
-      });
-      download('topic_counts.csv', lines.join('\n'));
+      download('coverage_matrix.csv', ls2.join('\n'));
     } else {
-      var g = findGaps(state.rows, state.agg, state.opts);
-      lines.push(['gap_type','chapter','detail','count','target'].join(','));
-      g.emptyChapters.forEach(function(c){ lines.push(['empty_chapter', c.code + ' ' + c.name, '', 0, ''].map(csvCell).join(',')); });
-      g.lowChapters.forEach(function(c){ lines.push(['below_min_chapter', c.code + ' ' + c.name, '', c.total, state.opts.chapterMin].map(csvCell).join(',')); });
-      g.emptyTopics.forEach(function(t){ lines.push(['empty_topic', t.chapterCode + ' ' + t.chapterName, t.name, 0, ''].map(csvCell).join(',')); });
-      g.below.forEach(function(b){ lines.push(['below_target_cell', b.chapter + ' ' + b.chapterName, b.type + ' × ' + b.difficulty, b.count, b.target].map(csvCell).join(',')); });
-      g.missing.forEach(function(m){ lines.push(['missing_combo', m.chapter + ' ' + m.chapterName, m.type + ' × ' + m.difficulty, 0, m.target].map(csvCell).join(',')); });
-      download('coverage_gaps.csv', lines.join('\n'));
+      var raw = state.raw.length ? state.raw : state.rows;
+      if (raw.length) exportObj(raw, Object.keys(raw[0]), 'loaded_rows.csv');
     }
   }
 
-  /* ---------------- plumbing ---------------- */
   function renderActive(){
-    if (state.active === 'readiness') renderReadiness();
-    else if (state.active === 'classes') renderClasses();
-    else if (state.active === 'overview') renderOverview();
+    if (state.active === 'explorer') renderExplorer();
+    else if (state.active === 'plan') renderPlan();
+    else if (state.active === 'chapters') renderOverview();
     else if (state.active === 'matrix') renderMatrix();
-    else if (state.active === 'topics') renderTopics();
-    else if (state.active === 'gaps') renderGaps();
-    else if (state.active === 'data') renderData();
+    else renderData();
   }
   function renderAll(){
     state.agg = aggregate(state.rows);
@@ -1321,35 +1509,37 @@ function makeSampleData(){
     state.raw = rawRows || [];
     state.server = server || {};
     state.source = label;
+    state.nav = {board: null, class: null, stream: null, subject: null, chapter: null};
+    state.lastHeat = null; state.lastPlan = null;
     renderAll();
   }
 
   function init(){
-    $('tabs').innerHTML = TABS.map(function(t){
-      return '<button data-tab="' + t[0] + '">' + t[1] + '</button>';
+    $('tab-' + state.active).classList.add('active');
+    $('tabs').innerHTML = TABS.map(function(t, i){
+      return '<button class="' + (state.active === t[0] ? 'active' : '') + '" data-tab="' + t[0] + '">' + t[1] + '</button>';
     }).join('');
     $('tabs').querySelectorAll('button').forEach(function(b){
       b.addEventListener('click', function(){
+        $('tabs').querySelectorAll('button').forEach(function(x){ x.classList.toggle('active', x === b); });
+        document.querySelectorAll('main .tab').forEach(function(s){ s.classList.remove('active'); });
         state.active = b.getAttribute('data-tab');
-        $('tabs').querySelectorAll('button').forEach(function(x){ x.classList.remove('active'); });
-        b.classList.add('active');
-        TABS.forEach(function(t){
-          $('tab-' + t[0]).classList.toggle('active', t[0] === state.active);
-        });
+        $('tab-' + state.active).classList.add('active');
         renderActive();
       });
     });
-    $('tab-readiness').classList.add('active');
-    $('chapterMin').addEventListener('change', function(){ state.opts.chapterMin = toNum(this.value); renderAll(); });
-    $('cellTarget').addEventListener('change', function(){ state.opts.cellTarget = toNum(this.value); renderAll(); });
+    $('chapterMin').addEventListener('change', function(e){
+      var v = +e.target.value; state.opts.chapterMin = (isFinite(v) && v > 0) ? v : 30; renderActive();
+    });
+    $('cellTarget').addEventListener('change', function(e){
+      var v = +e.target.value; state.opts.cellTarget = (isFinite(v) && v > 0) ? v : 3; renderActive();
+    });
     $('exportBtn').addEventListener('click', exportCSV);
     loadData(makeSampleData(), 'sample data');
   }
-
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-  else init();
-
+  init();
 })();
+
 </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a45c3c3c3c91fdd1',t:'MTc5MTIwMTMwNA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</body>
 </html>
