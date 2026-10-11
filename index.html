@@ -118,6 +118,19 @@
   .sevfilter{display:flex;gap:6px;margin:8px 0;flex-wrap:wrap}
   .sevfilter button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:3px 12px;font:inherit;font-size:12px;cursor:pointer}
   .sevfilter button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .chip.muted{background:#eef0f4;color:#556}
+  .bpfilter{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0;align-items:end}
+  .bpfilter label{font-size:10.5px;color:#667;display:block;text-transform:uppercase;letter-spacing:.4px}
+  .bpfilter select,.bpfilter input{padding:4px 7px;border:1px solid var(--line);border-radius:7px;font:inherit;font-size:12.5px;background:#fff;max-width:150px}
+  table.grid tr.slrow{cursor:pointer}
+  table.grid tr.slrow:hover td{background:#f6f8ff}
+  .stchip{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700}
+  .st-available{background:#bbf7d0;color:#14532d}.st-available_with_review{background:#d9f99d;color:#3f6212}
+  .st-partially_available{background:#fde68a;color:#78350f}.st-needs_review{background:#fed7aa;color:#7c2d12}
+  .st-missing{background:#fecaca;color:#7f1d1d}.st-blocked_by_eligibility{background:#ddd6fe;color:#4c1d95}
+  .st-no_target_configured{background:#eef0f4;color:#556}
+  .excl{font-size:11.5px;color:#667}
+  .candid{display:inline-block;margin:2px 3px;padding:1px 7px;background:#eef2ff;border-radius:6px;font-size:11.5px;font-family:ui-monospace,monospace}
   .gridcols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
   @media (max-width:900px){.gridcols{grid-template-columns:1fr}}
   .detail-title{font-weight:700;margin:14px 0 6px;font-size:13px}
@@ -145,6 +158,7 @@
 
 <main>
   <section id="tab-explorer"  class="tab"></section>
+  <section id="tab-bp"        class="tab"></section>
   <section id="tab-plan"      class="tab"></section>
   <section id="tab-chapters"  class="tab"></section>
   <section id="tab-matrix"    class="tab"></section>
@@ -496,6 +510,555 @@ function makeSampleData(){
 }
 </script>
 
+<script id="bplib">
+// SYNC CONTRACT: this block is the byte-identical content of
+// workflow-code/blueprint_lib.js (test/blueprint.test.js enforces it; the n8n
+// Assemble node embeds the same file). Edit the file, then run: node test/patch_docs.js
+// ============================================================
+// myTST blueprint intelligence — canonical model, validation,
+// slot matching, weightage derivation, deterministic scaling.
+// ONE source of truth: embedded into the n8n "Assemble Response"
+// node AND the coverage-matrix.html <script id="bplib"> block
+// (both kept byte-identical by test/blueprint.test.js).
+// Pure JS — no DB, no DOM, no n8n APIs. Never fabricates data:
+// anything missing stays null/undefined with an explicit warning.
+// ============================================================
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.BPLIB = factory();
+})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+'use strict';
+
+// ---------- tiny helpers ----------
+function isObj(v){ return v !== null && typeof v === 'object' && !Array.isArray(v); }
+function s(v){ return v === null || v === undefined ? null : String(v).trim(); }
+function normKey(v){ return (s(v) || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
+function toInt(v){ if (v === null || v === undefined || v === '') return null; var n = +v; return isFinite(n) ? Math.round(n) : null; }
+function firstDefined(){ for (var i = 0; i < arguments.length; i++) if (arguments[i] !== undefined && arguments[i] !== null && arguments[i] !== '') return arguments[i]; return null; }
+function pick(obj, names){ for (var i = 0; i < names.length; i++) if (obj && obj[names[i]] !== undefined) return obj[names[i]]; return null; }
+function parseMaybeJson(v){ if (typeof v === 'string'){ try { return JSON.parse(v); } catch (e) { return { __parse_error: e.message, __raw: v }; } } return v; }
+
+// canonical slot/dimension vocabularies (recognition only — unknown values are
+// PRESERVED and flagged, never dropped, never defaulted)
+var DIFF_LABEL = { easy: 'easy', medium: 'medium', hard: 'hard' };
+var TYPE_ALIASES = {
+  'mcq': 'MCQ', 'multiple choice': 'MCQ', 'multiple choice question': 'MCQ',
+  'assertion reason': 'Assertion-Reason', 'ar': 'Assertion-Reason',
+  'vsa': 'Very Short Answer', 'very short answer': 'Very Short Answer',
+  'sa': 'Short Answer', 'short answer': 'Short Answer',
+  'sa ii': 'Short Answer', 'sa iii': 'Short Answer', 'short answer ii': 'Short Answer', 'short answer iii': 'Short Answer',
+  'case based': 'Case-Based', 'case based question': 'Case-Based', 'case': 'Case-Based',
+  'la': 'Long Answer', 'long answer': 'Long Answer',
+  'competency based': 'Case-Based'
+};
+var KNOWN_COGNITIVE = ['remember','understand','apply','analyze','analysing','analyse','evaluate','create','hots','recall','application','analysis'];
+var KNOWN_STRUCTURES = ['single','subparts','case-study','assertion-reason','match-following','fill-blank','numerical','proof','map-diagram','graph'];
+
+// identity in the blueprint_id itself: BOARD-C<nn>-<SUBJ>-<digits>-<NAME>-v<k>
+function parseId(bpId){
+  var out = { board: null, class: null, subject: null, subject_code: null, name: null, version: null };
+  var m = /^([A-Za-z]+)-C(\d{1,2})-([A-Za-z]+)?(?:-(\d{2,3}))?-?(.*)$/.exec(String(bpId || ''));
+  if (!m) return out;
+  out.board = m[1].toUpperCase(); out.class = +m[2];
+  out.subject = m[3] ? m[3].toUpperCase() : null;
+  out.subject_code = m[4] || null;
+  var rest = m[5] || '';
+  var v = /-v(\d+)$/i.exec(rest);
+  if (v){ out.version = 'v' + v[1]; rest = rest.slice(0, rest.length - v[0].length); }
+  out.name = rest || null;
+  return out;
+}
+
+// difficulty/cognitive normalization used on BOTH sides of a match
+function normDifficulty(v){ var d = DIFF_LABEL[normKey(v)]; return d || null; }
+
+// ---------- canonical normalization ----------
+// row = a row from public.blueprints: {blueprint_id, subject_id, schema_version,
+//        matrix, chapter_pool, rules}   (JSONB may arrive as object or string)
+// Returns a canonical bp object; NEVER throws on odd input — problems land in
+// bp.validation.errors / bp.warnings so callers can show honest "unconfigured".
+function normalizeBlueprint(row){
+  row = row || {};
+  var warnings = [];
+  var matrix = parseMaybeJson(firstDefined(row.matrix, {}));
+  if (matrix && matrix.__parse_error){
+    return { blueprint_id: s(row.blueprint_id) || null, broken: true,
+             validation: { errors: [{ code: 'matrix_unparseable', message: 'matrix JSONB is not valid JSON: ' + matrix.__parse_error }], warnings: [] },
+             warnings: [], slots: [], chapters: {}, sections: {}, totals: { marks: null, slots: 0 } };
+  }
+  var rules = parseMaybeJson(firstDefined(row.rules, {})) || {};
+  if (rules.__parse_error){ warnings.push('rules JSON unparseable — ignored'); rules = {}; }
+  var pool  = parseMaybeJson(firstDefined(row.chapter_pool, null));
+  if (pool && pool.__parse_error){ warnings.push('chapter_pool JSON unparseable — skipped'); pool = null; }
+
+  // ---- slots: matrix.sections[].slots[] | matrix.slots[] | matrix[] ----
+  var raw = { slots: [], sections: [] };
+  var src = isObj(matrix) ? matrix : Array.isArray(matrix) ? { __flat: matrix } : {};
+  if (Array.isArray(src.sections)){
+    src.sections.forEach(function (sec, si){
+      var secName = firstDefined(sec && sec.name, sec && sec.section, 'S' + (si + 1));
+      (sec && Array.isArray(sec.slots) ? sec.slots : []).forEach(function (sl){ raw.slots.push(Object.assign({ __section: secName }, isObj(sl) ? sl : {})); });
+      raw.sections.push({ name: String(secName), declared_marks: toInt(firstDefined(sec && sec.marks, sec && sec.total_marks)), declared_slots: toInt(firstDefined(sec && sec.slot_count, sec && sec.n_slots)) });
+    });
+  } else if (Array.isArray(src.slots)){
+    src.slots.forEach(function (sl){ raw.slots.push(Object.assign({}, isObj(sl) ? sl : {})); });
+  } else if (Array.isArray(src.__flat)){
+    src.__flat.forEach(function (sl){ raw.slots.push(Object.assign({}, isObj(sl) ? sl : {})); });
+  } else if (Array.isArray(src.matrix)){
+    src.matrix.forEach(function (sl){ raw.slots.push(Object.assign({}, isObj(sl) ? sl : {})); });
+  } else {
+    warnings.push('matrix has no recognized slot layout (expected sections[].slots, slots[] or an array) — targets treated as unconfigured');
+  }
+  if (src.global && isObj(src.global)) { /* reserved */ }
+
+  // ---- reserved keys so "unknown preserved" is explicit ----
+  var SLOT_KNOWN = ['slot_id','id','question_number','number','position','section','chapter','chapter_code','topic','subtopic','marks','question_type','type','difficulty','cognitive_level','cognitive','typology','learning_outcome','structure_type','structure','subparts','subpart_count','internal_choice','or_rules','choice','diagram_required','requires_diagram','diagram','accessibility','target_count','count','n','constraints'];
+
+  var slots = raw.slots.map(function (o, i){
+    var ext = {};
+    Object.keys(o).forEach(function (k){ if (SLOT_KNOWN.indexOf(k) === -1 && k !== '__section') ext[k] = o[k]; });
+    var marks = toInt(firstDefined(o.marks, o.max_marks));
+    var tRaw = firstDefined(o.question_type, o.type);
+    var tKey = normKey(tRaw);
+    return {
+      index: i,
+      slot_id: s(firstDefined(o.slot_id, o.id)) || ('slot-' + (i + 1)),
+      id_source: o.slot_id ? 'declared' : (o.id ? 'declared' : 'synthetic'),
+      section: s(firstDefined(o.section, o.__section)),
+      position: toInt(firstDefined(o.question_number, o.number, o.position)),
+      chapter_code: s(firstDefined(o.chapter_code, o.chapter_code_ref)),
+      chapter: s(firstDefined(o.chapter, o.chapter_name, o.chapter_title)),
+      topic: s(o.topic), subtopic: s(o.subtopic),
+      marks: marks,
+      marks_missing: marks === null,
+      question_type: TYPE_ALIASES[tKey] || s(tRaw),
+      question_type_raw: s(tRaw),
+      type_recognized: !!TYPE_ALIASES[tKey],
+      difficulty: normDifficulty(firstDefined(o.difficulty, o.current_difficulty)),
+      difficulty_raw: s(o.difficulty),
+      cognitive: (function(){ var c = normKey(firstDefined(o.cognitive_level, o.cognitive, o.typology)); return c ? (KNOWN_COGNITIVE.indexOf(c) >= 0 ? c : c + ' (source-defined)') : null; })(),
+      learning_outcome: s(o.learning_outcome),
+      structure: firstDefined(o.structure_type, o.structure) ? s(firstDefined(o.structure_type, o.structure)) : null,
+      subparts: firstDefined(o.subparts, o.subpart_count),
+      internal_choice: firstDefined(o.internal_choice, o.or_rules, o.choice),
+      diagram_required: (function(){ var d = firstDefined(o.diagram_required, o.requires_diagram, o.diagram); if (d === null) return null; return d === true || ['true','yes','1','required','mandatory'].indexOf(normKey(d)) >= 0; })(),
+      accessibility: firstDefined(o.accessibility, o.accessibility_requirements) || null,
+      target_count: Math.max(1, toInt(firstDefined(o.target_count, o.count, o.n)) || 1),
+      constraints: isObj(o.constraints) ? o.constraints : null,
+      ext: ext
+    };
+  });
+  var slotsFromMatrixOnly = raw.slots.length === 0;
+
+  // ---- chapter pool: array | map | derived from slots (labeled) ----
+  var chapters = {}; var poolDerived = false; var poolList = [];
+  if (Array.isArray(pool)) poolList = pool.map(function (c){ return isObj(c) ? c : { chapter_code: null, name: s(c) }; });
+  else if (isObj(pool)) poolList = Object.keys(pool).map(function (k){ return Object.assign({ chapter_code: k }, isObj(pool[k]) ? pool[k] : { name: s(pool[k]) }); });
+  if (!poolList.length && !slotsFromMatrixOnly){
+    poolDerived = true;
+    var seen = {};
+    slots.forEach(function (sl){
+      var key = sl.chapter_code || sl.chapter || '—';
+      if (!seen[key]){ seen[key] = 1; poolList.push({ chapter_code: sl.chapter_code, name: sl.chapter }); }
+    });
+    warnings.push('chapter_pool absent — chapter list derived from slot references (analytical only)');
+  }
+  poolList.forEach(function (c, ci){
+    var code = s(firstDefined(c.chapter_code, c.code)) || ('ch-' + (ci + 1));
+    var name = s(firstDefined(c.name, c.chapter_name, c.chapter, c.title)) || code;
+    chapters[code] = {
+      chapter_code: code, name: name,
+      declared_marks: toInt(firstDefined(c.target_marks, c.marks, c.max_marks)),
+      weightage_pct: toInt(firstDefined(c.weightage_pct, c.weightage)) !== null ? +firstDefined(c.weightage_pct, c.weightage) : null,
+      allowed: firstDefined(c.allowed, true) !== false,
+      ext: c
+    };
+  });
+  var unresolved = [];
+  if (!poolDerived) slots.forEach(function (sl){
+    var key = sl.chapter_code || sl.chapter;
+    if (key && !chapters[key]){ unresolved.push({ slot_id: sl.slot_id, ref: key }); }
+  });
+
+  // ---- identity: rules.identity|meta|applicability ⊕ parsed blueprint_id ----
+  var idMeta = isObj(rules.identity) ? rules.identity : (isObj(rules.meta) ? rules.meta : (isObj(rules.applicability) ? rules.applicability : {}));
+  var idParsed = parseId(row.blueprint_id);
+  var identity = {
+    board: s(firstDefined(idMeta.board, idParsed.board)),
+    class: toInt(firstDefined(idMeta.class, idParsed.class)),
+    stream: s(firstDefined(idMeta.stream, idParsed.stream)) || null,
+    subject: s(firstDefined(idMeta.subject, idMeta.subject_name, idParsed.name && null)),
+    subject_code: s(firstDefined(idMeta.subject_code, idParsed.subject)),
+    subject_number: s(firstDefined(idMeta.subject_number, idParsed.subject_code)),
+    subject_id: toInt(row.subject_id),
+    name: s(firstDefined(idMeta.name, idMeta.blueprint_name, idParsed.name)),
+    version: s(firstDefined(idMeta.version, idMeta.blueprint_version, idParsed.version)),
+    curriculum_version: s(firstDefined(idMeta.curriculum_version, idMeta.syllabus_version, rules.curriculum_version))
+  };
+  if (idParsed.class !== null && identity.class === null) identity.class = idParsed.class;
+  if (!identity.subject && identity.subject_code) identity.subject = identity.subject_code;
+  if (idMeta.subject_code && identity.subject_number && String(idMeta.subject_code) === String(identity.subject_number)) { /* consistent */ }
+
+  // ---- declared totals ----
+  var totalsDecl = isObj(rules.totals) ? rules.totals : (isObj(matrix && matrix.totals) ? matrix.totals : {});
+  var sectionNames = [];
+  slots.forEach(function (sl){ if (sl.section && sectionNames.indexOf(sl.section) === -1) sectionNames.push(sl.section); });
+  var sections = {};
+  sectionNames.forEach(function (n){
+    var declared = raw.sections.filter(function (d){ return String(d.name) === n; })[0] || {};
+    sections[n] = { marks: 0, slots: 0, declared_marks: toInt(declared.declared_marks), declared_slots: toInt(declared.declared_slots) };
+  });
+  var totalMarks = 0;
+  slots.forEach(function (sl){
+    totalMarks += sl.marks || 0;
+    if (sl.section && sections[sl.section]){ sections[sl.section].marks += sl.marks || 0; sections[sl.section].slots++; }
+  });
+  var declaredTotalMarks = toInt(firstDefined(totalsDecl.marks, matrix && matrix.total_marks, rules.total_marks));
+  var declaredSlots = toInt(firstDefined(totalsDecl.slots, matrix && matrix.total_slots, rules.total_slots));
+  var sectionDeclared = isObj(rules.sections) ? rules.sections : (isObj(totalsDecl.sections) ? totalsDecl.sections : null);
+  if (sectionDeclared) Object.keys(sectionDeclared).forEach(function (k){
+    if (!sections[k]) sections[k] = { marks: 0, slots: 0, declared_marks: null, declared_slots: null };
+    var d = sectionDeclared[k];
+    sections[k].declared_marks = toInt(isObj(d) ? firstDefined(d.marks, d.total_marks) : d);
+    sections[k].declared_slots = toInt(isObj(d) ? firstDefined(d.slots, d.count) : null);
+  });
+
+  return {
+    blueprint_id: s(row.blueprint_id),
+    schema_version: s(row.schema_version),
+    identity: identity,
+    lifecycle: s(firstDefined(rules.status, idMeta.status)) || 'unknown',
+    published: firstDefined(rules.published, idMeta.published, rules.status && /publish/i.test(String(rules.status))) === true || /publish|active/i.test(String(firstDefined(rules.status, ''))),
+    effective_from: s(firstDefined(rules.effective_from, idMeta.effective_from)),
+    effective_to: s(firstDefined(rules.effective_to, idMeta.effective_to)),
+    provenance: {
+      source_filename: s(firstDefined(rules.source_filename, idMeta.source_filename, rules.provenance && rules.provenance.source_filename)),
+      source_checksum: s(firstDefined(rules.source_checksum, idMeta.source_checksum, rules.provenance && rules.provenance.source_checksum)),
+      uploaded_by: s(firstDefined(rules.uploaded_by, idMeta.uploaded_by, rules.provenance && rules.provenance.uploaded_by)),
+      uploaded_at: s(firstDefined(rules.uploaded_at, idMeta.uploaded_at, row.updated_at, row.created_at))
+    },
+    slots: slots,
+    chapters: chapters,
+    chapter_list: Object.keys(chapters).map(function (k){ return chapters[k]; }),
+    chapter_pool_derived: poolDerived,
+    unresolved_chapters: unresolved,
+    sections: sections,
+    totals: { marks: slots.length ? totalMarks : (declaredTotalMarks || 0), slots: slots.length,
+              declared_marks: declaredTotalMarks, declared_slots: declaredSlots },
+    type_distribution: (function(){ var o = {}; slots.forEach(function (sl){ var t = sl.question_type || '—'; o[t] = (o[t] || 0) + 1; }); return o; })(),
+    marks_distribution: (function(){ var o = {}; slots.forEach(function (sl){ var m = sl.marks == null ? '—' : String(sl.marks); o[m] = (o[m] || 0) + 1; }); return o; })(),
+    rules: rules, matrix: matrix, ext: (function(){ var e = {}; if (isObj(matrix)) Object.keys(matrix).forEach(function (k){ if (['slots','sections','totals'].indexOf(k) === -1) e[k] = matrix[k]; }); return e; })(),
+    warnings: warnings,
+    has_targets: slots.length > 0
+  };
+}
+
+// ---------- validation ----------
+// ctx: { knownTypes?: [..type_marks labels from the bank..] } — recognition is
+// advisory; unknown values are warnings, never silent defaults.
+function validateBlueprint(bp, ctx){
+  ctx = ctx || {};
+  var errors = [], warnings = [];
+  if (bp.broken) return { errors: bp.validation ? bp.validation.errors : [{ code: 'broken', message: 'unparseable matrix' }], warnings: [] };
+  if (!bp.blueprint_id) errors.push({ code: 'missing_identity', field: 'blueprint_id', message: 'blueprint_id is required' });
+  var id = bp.identity;
+  if (!id.board) warnings.push({ code: 'identity_board', message: 'board not found in rules metadata or blueprint_id — reference checks limited' });
+  if (id.class === null) warnings.push({ code: 'identity_class', message: 'class not found in identity metadata or blueprint_id' });
+  if (!id.subject_code && !id.subject) warnings.push({ code: 'identity_subject', message: 'subject not identifiable — Coverage cannot scope the bank to this blueprint' });
+  if (id.subject_id === null) warnings.push({ code: 'subject_ref_missing', message: 'subject_id is NULL — reference tables may be empty; blueprint identity stays in JSON (no fake records created)' });
+
+  if (!bp.has_targets){
+    errors.push({ code: 'no_slots', message: 'no slots recognized in matrix — publish blocked; inspect source shape' });
+    return { errors: errors, warnings: warnings.concat((bp.warnings || []).map(function (w){ return { code: 'parse', message: w }; })) };
+  }
+  var ids = {};
+  bp.slots.forEach(function (sl){
+    if (ids[sl.slot_id]) errors.push({ code: 'duplicate_slot_id', slot_id: sl.slot_id, message: 'slot id used twice within this version' });
+    ids[sl.slot_id] = 1;
+    if (sl.marks_missing) errors.push({ code: 'slot_marks_missing', slot_id: sl.slot_id, message: 'slot has no valid marks value' });
+    else if (sl.marks <= 0) errors.push({ code: 'slot_marks_invalid', slot_id: sl.slot_id, message: 'marks must be > 0, got ' + sl.marks });
+    if (!sl.question_type) warnings.push({ code: 'slot_type_missing', slot_id: sl.slot_id, message: 'no question type — matching falls back to marks+chapter only' });
+    else if (!sl.type_recognized && ctx.knownTypes && ctx.knownTypes.length && ctx.knownTypes.map(normKey).indexOf(normKey(sl.question_type_raw)) === -1)
+      warnings.push({ code: 'slot_type_unmatched', slot_id: sl.slot_id, message: 'question type "' + sl.question_type_raw + '" is neither canonical nor present in the bank labels' });
+    if (sl.id_source === 'synthetic') warnings.push({ code: 'slot_id_synthetic', slot_id: sl.slot_id, message: 'slot carries no declared id — stable identity at risk for tracing' });
+    if (!sl.chapter_code && !sl.chapter) warnings.push({ code: 'slot_no_chapter', slot_id: sl.slot_id, message: 'slot is not pinned to a chapter — weightage derivation cannot see it' });
+    if (sl.difficulty_raw && !sl.difficulty) warnings.push({ code: 'difficulty_unrecognized', slot_id: sl.slot_id, message: 'difficulty "' + sl.difficulty_raw + '" not in easy/medium/hard — kept raw, used as exact-string constraint' });
+    if (Object.keys(sl.ext || {}).length) warnings.push({ code: 'unknown_fields', slot_id: sl.slot_id, message: Object.keys(sl.ext).length + ' source field(s) preserved under ext (not validated)' });
+  });
+  bp.unresolved_chapters.forEach(function (u){
+    errors.push({ code: 'unresolved_chapter', slot_id: u.slot_id, message: 'slot references chapter "' + u.ref + '" missing from chapter_pool' });
+  });
+  // totals reconciliation
+  if (bp.totals.declared_marks !== null && bp.totals.declared_marks !== bp.totals.marks)
+    errors.push({ code: 'marks_total_mismatch', message: 'declared total ' + bp.totals.declared_marks + ' marks, slots sum to ' + bp.totals.marks });
+  if (bp.totals.declared_slots !== null && bp.totals.declared_slots !== bp.totals.slots)
+    errors.push({ code: 'slot_count_mismatch', message: 'declared ' + bp.totals.declared_slots + ' slots, matrix has ' + bp.totals.slots });
+  Object.keys(bp.sections).forEach(function (n){
+    var sc = bp.sections[n];
+    if (sc.declared_marks !== null && sc.declared_marks !== sc.marks)
+      errors.push({ code: 'section_marks_mismatch', section: n, message: 'section ' + n + ': declared ' + sc.declared_marks + ' marks, slots sum to ' + sc.marks });
+    if (sc.declared_slots !== null && sc.declared_slots !== sc.slots)
+      errors.push({ code: 'section_slots_mismatch', section: n, message: 'section ' + n + ': declared ' + sc.declared_slots + ' slots, found ' + sc.slots });
+  });
+  if (bp.chapter_pool_derived) warnings.push({ code: 'pool_derived', message: 'chapter weightage is derived from slot marks (no chapter_pool supplied)' });
+  return { errors: errors, warnings: warnings };
+}
+
+// ---------- slot × bank matching ----------
+// rows: slotbank-shaped aggregates, one per distinct dimension combo:
+// { board, class, subject_code, chapter_code, chapter, question_type, marks,
+//   difficulty_norm, cognitive?, structure?, diagram_ok?, n_versions, n_usable,
+//   n_questions?, n_families?, n_no_answer?, n_bad_status?, n_review?,
+//   sample_ids?: [] , raw? }
+// opts: { papers?: n (multiplies target_count), filters?: {...} UI-side narrowing }
+function slotMatchesRow(sl, r, opts){
+  opts = opts || {};
+  var f = opts.filters || {};
+  if (f.question_type && normKey(r.question_type) !== normKey(f.question_type)) return false;
+  if (f.marks && toInt(r.marks) !== toInt(f.marks)) return false;
+  if (f.difficulty && normDifficulty(r.difficulty_norm) !== normDifficulty(f.difficulty)) return false;
+  if (sl.chapter_code && r.chapter_code && sl.chapter_code !== r.chapter_code) return false;
+  if (!sl.chapter_code && sl.chapter && r.chapter && normKey(sl.chapter) !== normKey(r.chapter)) return false;
+  if (sl.question_type && r.question_type && normKey(sl.question_type) !== normKey(r.question_type)) return false;
+  if (sl.marks != null && toInt(r.marks) !== sl.marks) return false;   // marks alone NEVER qualifies a question
+  if (sl.difficulty){
+    var rd = normDifficulty(r.difficulty_norm || r.difficulty) || String(r.difficulty || '').trim();
+    if (normKey(rd) !== normKey(sl.difficulty_raw || sl.difficulty)) return false;
+  }
+  if (sl.cognitive && r.cognitive != null && normKey(String(sl.cognitive).replace(' (source-defined)','')) !== normKey(r.cognitive)) return false;
+  if (sl.structure && r.structure != null && normKey(sl.structure) !== normKey(r.structure)) return false;
+  if (sl.diagram_required === true && r.diagram_ok != null && r.diagram_ok === false) return false;
+  return true;
+}
+function matchSlots(bp, rows, opts){
+  opts = opts || {};
+  var papers = Math.max(1, toInt(opts.papers) || 1);
+  var perSlot = [], rowHit = {};
+  (bp.slots || []).forEach(function (sl){
+    var hits = [], slotMatch = {};
+    rows.forEach(function (r, ri){
+      if (!slotMatchesRow(sl, r, opts)) return;
+      hits.push({ ri: ri, row: r });
+      slotMatch[ri] = 1;
+      rowHit[ri] = 1;
+    });
+    var versions = 0, usable = 0, noAns = 0, badStatus = 0, review = 0,
+        q = 0, fam = 0, ids = [];
+    hits.forEach(function (h){
+      var r = h.row;
+      versions += toInt(r.n_versions != null ? r.n_versions : r.count) || 0;
+      usable   += toInt(r.n_usable != null ? r.n_usable : r.usable) || 0;
+      noAns    += toInt(r.n_no_answer) || 0;
+      badStatus+= toInt(r.n_bad_status) || 0;
+      review   += toInt(r.n_review) || 0;
+      q += toInt(r.n_questions) || 0; fam += toInt(r.n_families) || 0;
+      if (Array.isArray(r.sample_ids)){ var cap = toInt(opts.idCap) || 24; r.sample_ids.forEach(function (v){ if (ids.length < cap) ids.push(v); }); }
+    });
+    var target = (toInt(sl.target_count) || 1) * papers;
+    var status, shortfall = Math.max(0, target - usable);
+    if (!hits.length) status = 'missing';                       // nothing even matches the shape
+    else if (usable <= 0) status = versions > 0 ? 'blocked_by_eligibility' : 'missing';
+    else if (usable >= target) status = review > usable * 0.5 && review > 0 ? 'needs_review' : 'available';
+    else status = 'partially_available';
+    if (usable > 0 && review > 0 && status === 'available') status = 'available_with_review';
+    // near-misses: rows that share the chapter but fail exactly one constraint —
+    // this is the "why didn't they qualify" panel, computed honestly from counts.
+    var near = { versions: 0, reasons: {} };
+    rows.forEach(function (r, ri){
+      if (slotMatch[ri]) return;
+      var sameChapter = (sl.chapter_code && r.chapter_code) ? sl.chapter_code === r.chapter_code
+                      : (sl.chapter ? normKey(sl.chapter) === normKey(r.chapter) : true);
+      if (!sameChapter) return;
+      var fail = null;
+      if (sl.question_type && r.question_type && normKey(sl.question_type) !== normKey(r.question_type)) fail = 'question_type ≠ ' + sl.question_type;
+      else if (sl.marks != null && toInt(r.marks) !== sl.marks) fail = 'marks ≠ ' + sl.marks;
+      else if (sl.difficulty && normDifficulty(r.difficulty_norm || r.difficulty) !== normKey(sl.difficulty_raw || sl.difficulty)) fail = 'difficulty ≠ ' + sl.difficulty;
+      else if (sl.cognitive && r.cognitive != null && normKey(String(sl.cognitive).replace(' (source-defined)','')) !== normKey(r.cognitive)) fail = 'cognitive ≠ ' + sl.cognitive;
+      else if (sl.structure && r.structure != null && normKey(sl.structure) !== normKey(r.structure)) fail = 'structure ≠ ' + sl.structure;
+      else if (sl.diagram_required === true && r.diagram_ok === false) fail = 'diagram missing';
+      if (fail){ near.versions += toInt(r.n_versions) || 0; near.reasons[fail] = (near.reasons[fail] || 0) + (toInt(r.n_versions) || 0); }
+    });
+    perSlot.push({
+      slot_id: sl.slot_id, section: sl.section, position: sl.position,
+      near_misses: near,
+      chapter_code: sl.chapter_code || sl.chapter, marks: sl.marks,
+      question_type: sl.question_type, difficulty: sl.difficulty,
+      cognitive: sl.cognitive, structure: sl.structure,
+      subparts: sl.subparts, internal_choice: sl.internal_choice,
+      diagram_required: sl.diagram_required, accessibility: sl.accessibility,
+      target_count: target,
+      candidate_versions: versions, eligible_versions: usable,
+      distinct_questions: q, distinct_families: fam,
+      status: status, shortfall: shortfall,
+      surplus: Math.max(0, usable - target),
+      candidates: ids,
+      excluded: { missing_answer: noAns, bad_status: badStatus, needs_review: review },
+      has_constraints_left: !!(sl.cognitive || sl.structure || sl.diagram_required)
+    });
+  });
+  var matchedRows = rows.filter(function (r, ri){ return rowHit[ri]; });
+  var sum = function (k){ return matchedRows.reduce(function (a, r){ return a + (toInt(r[k] != null ? r[k] : (k === 'n_versions' || k === 'count') ? r.count : 0) || 0); }, 0); };
+  var filled = perSlot.filter(function (r){ return r.eligible_versions > 0; }).length;
+  var compare = {
+    target_slots: perSlot.length,
+    filled_slots: filled,
+    shortfall_slots: perSlot.length - filled,
+    blocked_slots: perSlot.filter(function (r){ return r.status === 'blocked_by_eligibility'; }).length,
+    // union across slots — rows are disjoint dimension combos, so no double count:
+    eligible_candidates: sum('n_usable') ,
+    eligible_versions: sum('n_usable'),
+    raw_versions: sum('n_versions'),
+    distinct_questions_approx: matchedRows.length ? matchedRows.reduce(function (a, r){ return a + (toInt(r.n_questions) || 0); }, 0) : null,
+    distinct_families_approx: matchedRows.length ? matchedRows.reduce(function (a, r){ return a + (toInt(r.n_families) || 0); }, 0) : null,
+    coverage_pct: perSlot.length ? Math.round(1000 * filled / perSlot.length) / 10 : null,
+    target_marks: bp.totals ? bp.totals.marks : null,
+    usable_marks: 0
+  };
+  compare.usable_marks = perSlot.reduce(function (a, r){ return a + (r.marks || 0) * Math.min(r.eligible_versions, r.target_count); }, 0);
+  return { per_slot: perSlot, compare: compare };
+}
+
+// ---------- blueprint-derived chapter weightage ----------
+// derived ONLY from the normalized slots (+ declared pool marks as a cross-check).
+// Labeled in the UI as "derived from the stored blueprint — not independently
+// verified official CBSE weightage".
+function chapterWeightage(bp){
+  var per = {};
+  (bp.slots || []).forEach(function (sl){
+    var key = sl.chapter_code || sl.chapter || '—';
+    var o = per[key] || (per[key] = { chapter_code: sl.chapter_code, chapter: sl.chapter || key,
+      target_marks: 0, slots: 0, declared_pool_marks: bp.chapters[key] ? bp.chapters[key].declared_marks : null });
+    o.target_marks += sl.marks || 0; o.slots++;
+  });
+  var total = bp.totals ? (bp.totals.marks || 1) : 1;
+  var rows = Object.keys(per).map(function (k){
+    var o = per[k];
+    return Object.assign({}, o, {
+      pct: Math.round(1000 * o.target_marks / total) / 10,
+      pool_conflict: o.declared_pool_marks !== null && o.declared_pool_marks !== o.target_marks
+    });
+  }).sort(function (a, b){ return b.target_marks - a.target_marks || String(a.chapter).localeCompare(String(b.chapter)); });
+  return { total_marks: total, chapters: rows, conflicts: rows.filter(function (r){ return r.pool_conflict; }) };
+}
+
+// ---------- deterministic full-syllabus scaling ----------
+// Largest-remainder with a fixed tie order; guarantees the scaled marks sum to
+// exactly `paperMarks`. For mode 'partial' | 'custom' the blueprint weightage is
+// NOT enforced — the caller's selected chapters / planner targets pass through.
+function scaleChapterTargets(bp, paperMarks, opts){
+  opts = opts || {};
+  var mode = opts.mode || 'full';
+  if (mode !== 'full'){
+    return { mode: mode, enforced: false,
+      chapters: (opts.selectedChapters || []).map(function (c){ return Object.assign({}, c); }),
+      note: 'partial/custom papers follow the dynamic planner targets; full-syllabus blueprint weightage is not enforced' };
+  }
+  var cw = chapterWeightage(bp);
+  var quota = (paperMarks || cw.total_marks) / (cw.total_marks || 1);
+  var items = cw.chapters.map(function (c){
+    var exact = c.target_marks * quota;
+    return { chapter_code: c.chapter_code, chapter: c.chapter, target_marks: c.target_marks, exact: exact,
+             base: Math.floor(exact), rem: exact - Math.floor(exact) };
+  });
+  var allocated = items.reduce(function (a, x){ return a + x.base; }, 0);
+  var seats = (paperMarks || 0) - allocated;
+  var order = items.slice().sort(function (a, b){
+    return (b.rem - a.rem) || (b.target_marks || 0) - (a.target_marks || 0) || String(a.chapter_code).localeCompare(String(b.chapter_code));
+  });
+  var ranked = items.slice().sort(function (a, b){
+    return (b.rem - a.rem) || (b.exact - a.exact) || String(a.chapter_code).localeCompare(String(b.chapter_code));
+  });
+  for (var i = 0; i < seats && ranked.length; i++) ranked[i % ranked.length].base += 1;
+  var out = order.length ? items.map(function (x){
+    return { chapter_code: x.chapter_code, chapter: x.chapter, target_marks: x.target_marks, scaled_marks: Math.max(0, x.base) };
+  }) : [];
+  var sum = out.reduce(function (a, x){ return a + x.scaled_marks; }, 0);
+  // safety net: exact totals are a hard contract; shave/extend deterministically
+  var si = 0;
+  while (sum > paperMarks && si < out.length){ var j = si++ % out.length; if (out[j].scaled_marks > 0){ out[j].scaled_marks--; sum--; } }
+  while (sum < paperMarks && si < out.length * 4){ var k = si++ % out.length; out[k].scaled_marks++; sum++; }
+  return { mode: 'full', enforced: true, paper_marks: paperMarks, factor: quota, chapters: out, sum: sum };
+}
+
+// ---------- deterministic fixture: CBSE Class XII Mathematics master blueprint ----------
+// Built ONLY from the acceptance numbers in the product spec (38 slots / 80 marks /
+// 13 chapters / A20 B10 C18 D20 E12 / chapter marks). This is a TEST FIXTURE and a
+// demo dataset — it is clearly labeled as such wherever it is rendered, and it is
+// NOT presented as a copy of the live blueprints row.
+function makeMasterFixture(){
+  var chs = [
+    ['M12-RF','Relations and Functions',6],   ['M12-ITF','Inverse Trigonometric Functions',2],
+    ['M12-MT','Matrices',4],                  ['M12-DET','Determinants',6],
+    ['M12-CD','Continuity and Differentiability',11], ['M12-AOD','Applications of Derivatives',7],
+    ['M12-INT','Integrals',8],                ['M12-AI','Applications of the Integrals',4],
+    ['M12-DE','Differential Equations',5],    ['M12-VEC','Vectors',4],
+    ['M12-3DG','Three-Dimensional Geometry',10], ['M12-LPP','Linear Programming',5],
+    ['M12-PRO','Probability',8]
+  ];
+  // chapter → [ [marks, type], … ]  (sums reconcile to the chapter marks above)
+  var alloc = {
+    'M12-RF': [[5,'LA'],[1,'MCQ']],
+    'M12-ITF': [[1,'MCQ'],[1,'Assertion-Reason']],
+    'M12-MT': [[4,'Case-Based']],
+    'M12-DET': [[3,'Short Answer'],[3,'Short Answer']],
+    'M12-CD': [[5,'LA'],[3,'Short Answer'],[3,'Short Answer']],
+    'M12-AOD': [[3,'Short Answer'],[2,'Short Answer'],[2,'Short Answer']],
+    'M12-INT': [[5,'LA'],[2,'Short Answer'],[1,'MCQ']],
+    'M12-AI': [[4,'Case-Based']],
+    'M12-DE': [[1,'MCQ'],[1,'MCQ'],[1,'MCQ'],[1,'MCQ'],[1,'MCQ']],
+    'M12-VEC': [[1,'Assertion-Reason'],[1,'Assertion-Reason'],[1,'MCQ'],[1,'MCQ']],
+    'M12-3DG': [[5,'LA'],[3,'Short Answer'],[2,'Short Answer']],
+    'M12-LPP': [[1,'MCQ'],[1,'MCQ'],[1,'MCQ'],[1,'Assertion-Reason'],[1,'MCQ']],
+    'M12-PRO': [[4,'Case-Based'],[2,'Short Answer'],[1,'MCQ'],[1,'MCQ']]
+  };
+  var sectionOf = { 1: 'A', 2: 'B', 3: 'C', 5: 'D', 4: 'E' };
+  var slots = [], n = 0;
+  chs.forEach(function (c){
+    (alloc[c[0]] || []).forEach(function (a){
+      n++;
+      var sl = { slot_id: 'S' + c[0].slice(1) + '-' + n, section: sectionOf[a[0]], question_number: n,
+                 chapter_code: c[0], chapter: c[1], marks: a[0], question_type: a[1], target_count: 1 };
+      // representative extras so preservation + constraint paths are exercised
+      if (a[1] === 'LA') { sl.subparts = 3; sl.internal_choice = { type: 'either-or', alt_marks: a[0] }; sl.difficulty = 'hard'; }
+      if (a[1] === 'Case-Based') { sl.subparts = 4; sl.structure_type = 'case-study'; sl.cognitive_level = 'Apply'; }
+      if (a[1] === 'Assertion-Reason') sl.cognitive_level = 'understand';
+      if (c[0] === 'M12-INT' && a[1] === 'MCQ') sl.diagram_required = false, sl.cbse_note = 'fixture demo of unknown-field preservation';
+      slots.push(sl);
+    });
+  });
+  return {
+    blueprint_id: 'CBSE-C12-MAT-041-MASTER-v1',
+    subject_id: null,
+    schema_version: 'mytst-blueprint-v1',
+    matrix: { slots: slots },
+    chapter_pool: chs.map(function (c){ return { chapter_code: c[0], name: c[1], target_marks: c[2] }; }),
+    rules: {
+      status: 'published', published: true,
+      identity: { board: 'CBSE', class: 12, subject: 'Mathematics', subject_code: 'MAT',
+                  subject_number: '041', name: 'MASTER', version: 'v1',
+                  curriculum_version: 'NCERT-2025-26' },
+      totals: { marks: 80, slots: 38,
+                sections: { A: { marks: 20, slots: 20 }, B: { marks: 10, slots: 5 },
+                            C: { marks: 18, slots: 6 }, D: { marks: 20, slots: 4 }, E: { marks: 12, slots: 3 } } },
+      provenance: { source_filename: 'fixture — built from the product spec acceptance table',
+                    source_checksum: 'sha256:FIXTURE' }
+    }
+  };
+}
+
+  return {
+    normalizeBlueprint: normalizeBlueprint,
+    validateBlueprint: validateBlueprint,
+    matchSlots: matchSlots,
+    chapterWeightage: chapterWeightage,
+    scaleChapterTargets: scaleChapterTargets,
+    makeMasterFixture: makeMasterFixture,
+    parseId: parseId, normDifficulty: normDifficulty, normKey: normKey,
+    normEq: function (a, b) { return normKey(a) === normKey(b); }
+  };
+});
+</script>
+
 <script id="ui">
 'use strict';
 (function(){
@@ -506,12 +1069,15 @@ function makeSampleData(){
     opts: {chapterMin:30, cellTarget:3},
     sort: {}, selectedCell: null,
     nav: {board: null, class: null, stream: null, subject: null, chapter: null},
-    planSev: 'ALL', _navq: [], lastHeat: null, lastPlan: null
+    planSev: 'ALL', _navq: [], lastHeat: null, lastPlan: null,
+    bpSel: null, bpDemo: false, bpOpenSlot: null,
+    bpFilters: {question_type:'', marks:'', difficulty:'', cognitive:'', structure:'', diagram:'', review:''},
+    bpScale: {marks: '', mode: 'full'}
   };
 
   var TABS = [
-    ['explorer','Explorer'], ['plan','Add / Missing'], ['chapters','Chapters'],
-    ['matrix','Matrix'], ['data','Data']
+    ['explorer','Explorer'], ['bp','Blueprint'], ['plan','Add / Missing'],
+    ['chapters','Chapters'], ['matrix','Matrix'], ['data','Data']
   ];
 
   /* ---------------- KPI strip (global) ---------------- */
@@ -1074,6 +1640,7 @@ function makeSampleData(){
       ' <span class="hint">target 30 / 40 / 30' +
       (row.cells_met != null && row.cells_total ? ' · cells ≥ floor: ' + row.cells_met + '/' + row.cells_total : '') +
       (row.zero_cells != null ? ' · zero cells: ' + row.zero_cells : '') + '</span></div></div>';
+    h += bpPointerHtml();
     h += capacityBlock();
     h += heatBlock();
     if (n.chapter) h += topicBlock();
@@ -1225,12 +1792,26 @@ function makeSampleData(){
     });
     return Object.keys(acc).map(function(k){ return acc[k]; }).sort(function(a, b){ return b.n - a.n; }).slice(0, 40);
   }
+  function gotoTab(name){
+    state.active = name;
+    document.querySelectorAll('main .tab').forEach(function(x){ x.classList.remove('active'); });
+    $('tab-' + name).classList.add('active');
+    $('tabs').querySelectorAll('button').forEach(function(x){ x.classList.toggle('active', x.getAttribute('data-tab') === name); });
+    renderActive();
+  }
   function wireNav(el){
     el.querySelectorAll('[data-navq]').forEach(function(b){
       b.addEventListener('click', function(ev){
         if (ev.target.closest && ev.target.closest('[data-chclose]')) return;
         state.nav = Object.assign({}, state._navq[+b.getAttribute('data-navq')]);
         renderExplorer();
+      });
+    });
+    el.querySelectorAll('[data-bpjumps]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var nav = state._navq[+b.getAttribute('data-bpjumps')] || {};
+        state.bpSel = nav.jump; state.bpOpenSlot = null;
+        gotoTab('bp');
       });
     });
     el.querySelectorAll('[data-chclose]').forEach(function(b){
@@ -1247,6 +1828,369 @@ function makeSampleData(){
       });
     });
   }
+  /* ---------------- Blueprint: stored matrix × eligible bank, slot by slot ---------------- */
+  function bpRawRows(){
+    var srv = (state.server.blueprints || []).filter(function(b){ return b && (b.blueprint_id || b.matrix); });
+    if (srv.length) return srv;
+    return state.bpDemo ? [BPLIB.makeMasterFixture()] : [];
+  }
+  // bank rows at slot-matching granularity: server slotbank view wins, else derive
+  // from loaded cell rows (one entry per chapter×type×marks×difficulty combo).
+  function bpBankRows(){
+    if (state.server.slotbank && state.server.slotbank.length) return state.server.slotbank;
+    var g = {};
+    srcRows().forEach(function(r){
+      var dk = (r.difficulty_norm != null && r.difficulty_norm !== '') ? String(r.difficulty_norm).trim().toLowerCase()
+             : (r.difficulty != null ? String(r.difficulty).trim().toLowerCase() : null);
+      var k = [bkey(r), ckey(r), skey(r), r.chapter_code || '?', r.question_type || '', toNum(r.marks), dk].join(' | ');
+      var o = g[k] || (g[k] = { board: r.board || null, class: ckey(r), subject_code: skey(r) === '—' ? null : skey(r),
+        chapter_code: r.chapter_code || null, chapter: r.chapter_name || r.chapter || null,
+        question_type: r.question_type || null, marks: toNum(r.marks), difficulty_norm: dk,
+        cognitive: r.cognitive_level != null ? String(r.cognitive_level).trim().toLowerCase() : null,
+        structure: r.structure_type != null ? String(r.structure_type).trim().toLowerCase() : null,
+        diagram_ok: r.has_diagram != null ? true : null,
+        n_versions: 0, n_usable: 0, n_questions: null, n_families: null,
+        n_no_answer: 0, n_bad_status: 0, n_review: null, sample_ids: null });
+      o.n_versions += toNum(r.count);
+      var u = rdUsable(r); o.n_usable += u;
+      o.n_no_answer += Math.max(0, toNum(r.count) - toNum(r.with_answer));
+      if (r.needs_review != null) o.n_review = (o.n_review || 0) + toNum(r.needs_review);
+    });
+    Object.keys(g).forEach(function(k){ var o = g[k];
+      o.n_bad_status = Math.max(0, o.n_versions - o.n_usable - o.n_no_answer); });
+    return Object.keys(g).map(function(k){ return g[k]; });
+  }
+  function bpScope(bpid){
+    var raw = bpRawRows().filter(function(b){ return (b.blueprint_id || '') === bpid; })[0];
+    if (!raw) return null;
+    var bp = BPLIB.normalizeBlueprint(raw);
+    var v = BPLIB.validateBlueprint(bp, {});
+    var all = bpBankRows();
+    var id = bp.identity || {};
+    var scoped = all.filter(function(r){
+      if (id.board != null){ if (r.board == null) return false; if (BPLIB.normKey(r.board) !== BPLIB.normKey(id.board)) return false; }
+      if (id.class != null){ if (r.class == null) return false; if (String(r.class) !== String(id.class)) return false; }
+      if (id.subject_code != null){ if (r.subject_code == null) return false; if (BPLIB.normKey(r.subject_code) !== BPLIB.normKey(id.subject_code)) return false; }
+      return true;
+    });
+    var f = state.bpFilters;
+    var filt = scoped.filter(function(r){
+      if (f.question_type && BPLIB.normKey(r.question_type) !== BPLIB.normKey(f.question_type)) return false;
+      if (f.marks && String(r.marks) !== String(f.marks)) return false;
+      if (f.difficulty && BPLIB.normKey(r.difficulty_norm) !== f.difficulty) return false;
+      if (f.cognitive && BPLIB.normKey(r.cognitive) !== BPLIB.normKey(f.cognitive)) return false;
+      if (f.structure && BPLIB.normKey(r.structure) !== BPLIB.normKey(f.structure)) return false;
+      if (f.diagram === 'missing' && r.diagram_ok !== false) return false;
+      if (f.diagram === 'ok' && r.diagram_ok === false) return false;
+      if (f.review === 'only' && !(r.n_review > 0)) return false;
+      return true;
+    });
+    var cov = bp.has_targets && !v.errors.some(function(e){ return e.code === 'no_slots'; })
+      ? BPLIB.matchSlots(bp, filt, {}) : null;
+    var bs = (state.server.bankstats || []).filter(function(r){
+      if (id.board != null && r.board && BPLIB.normKey(r.board) !== BPLIB.normKey(id.board)) return false;
+      if (id.class != null && String(r.class) !== String(id.class)) return false;
+      if (id.subject_code != null && r.subject_code && BPLIB.normKey(r.subject_code) !== BPLIB.normKey(id.subject_code)) return false;
+      return true;
+    });
+    return { raw: raw, bp: bp, v: v, scoped: scoped, filt: filt, cov: cov, bankstats: bs };
+  }
+  function bpCurrent(){
+    if (!state.bpSel) return null;
+    return bpScope(state.bpSel);
+  }
+  var BP_STATUS_LABEL = { available: 'Available', available_with_review: 'Available · review',
+    partially_available: 'Partial', needs_review: 'Needs review', missing: 'Missing',
+    blocked_by_eligibility: 'Blocked by eligibility', no_target_configured: 'No target configured' };
+  function bpStatus(st){ return '<span class="stchip st-' + st + '">' + esc(BP_STATUS_LABEL[st] || st) + '</span>'; }
+  function bpScopesWithoutBp(){
+    var raws = bpRawRows();
+    var ids = raws.map(function(b){ return BPLIB.normalizeBlueprint(b).identity; });
+    return readinessRows().filter(function(r){
+      if (r.lvl !== 'subject') return false;
+      return !ids.some(function(id){
+        return id && String(id.class) === String(r.class) && BPLIB.normKey(id.subject_code || id.subject) === BPLIB.normKey(r.subject_code);
+      });
+    });
+  }
+  function bpTailHtml(){
+    // second half of the detail: compare table, weightage, slots — appended by renderBlueprint
+    var cur = bpCurrent();
+    if (!cur || !cur.bp.has_targets) return '';
+    var bp = cur.bp, v = cur.v, cov = cur.cov, cmp = cov.compare;
+    var h = '';
+    // ---------- blueprint-vs-bank comparison ----------
+    var DEFS = [
+      ['Target slots', cmp.target_slots, 'slots required by the blueprint (per paper)'],
+      ['Eligible candidates', '≈' + (cmp.distinct_questions_approx != null ? cmp.distinct_questions_approx : cmp.eligible_versions) + ' distinct', 'eligible questions matching ≥1 slot constraint (union — not a sum per slot)'],
+      ['Eligible versions', cmp.eligible_versions, 'eligible question_versions behind those candidates'],
+      ['Distinct families', cmp.distinct_families_approx != null ? cmp.distinct_families_approx : '—', 'question families; family rules can still block using related questions together'],
+      ['Filled slots', cmp.filled_slots, 'slots with ≥1 eligible candidate'],
+      ['Shortfall slots', cmp.shortfall_slots, 'slots that cannot currently be filled'],
+      ['Blocked by eligibility', cmp.blocked_slots, 'shape matches, but every candidate fails eligibility'],
+      ['Surplus (usable marks)', cmp.usable_marks - cmp.target_marks, 'Σ marks×min(eligible,target) beyond target — informational only'],
+      ['Coverage', (cmp.coverage_pct == null ? '—' : cmp.coverage_pct + '%'), 'fillable target slots ÷ target slots'],
+      ['Raw matching versions', cmp.raw_versions, 'inventory before eligibility (kept separate on purpose)']
+    ];
+    h += '<div class="panel"><h3 style="margin-top:0">Blueprint vs bank <span class="hint">— counts are unions over disjoint dimension combos; one candidate matching several slots is counted once</span></h3>' +
+      '<table class="grid"><thead><tr><th>Metric</th><th class="num">Value</th><th>Definition</th></tr></thead><tbody>' +
+      DEFS.map(function(d){ return '<tr><td><b>' + esc(String(d[0])) + '</b></td><td class="num">' + esc(String(d[1] == null ? '—' : d[1])) + '</td><td class="hint">' + esc(d[2]) + '</td></tr>'; }).join('') +
+      '</tbody></table></div>';
+    // ---------- weightage + scaling ----------
+    var w = BPLIB.chapterWeightage(bp);
+    var marksInput = state.bpScale.marks;
+    var scaled = null;
+    if (state.bpScale.mode === 'full' && +marksInput > 0)
+      scaled = BPLIB.scaleChapterTargets(bp, +marksInput, { mode: 'full' });
+    var perChap = {};
+    cov.per_slot.forEach(function(r){ var k = r.chapter_code || '—'; var o = perChap[k] || (perChap[k] = { filled: 0, slots: 0, eligMarks: 0, short: 0 });
+      o.slots++; if (r.eligible_versions > 0) o.filled++; o.eligMarks += (r.marks || 0) * Math.min(r.eligible_versions, r.target_count); o.short += r.shortfall; });
+    h += '<div class="panel"><h3 style="margin-top:0">Chapter weightage <span class="hint">derived from the stored blueprint — NOT independently verified official CBSE weightage</span></h3>' +
+      '<div class="toolbar" style="margin-bottom:6px">mode ' +
+      '<select data-bpscale="mode"><option value="full"' + (state.bpScale.mode === 'full' ? ' selected' : '') + '>full syllabus</option>' +
+      '<option value="partial"' + (state.bpScale.mode === 'partial' ? ' selected' : '') + '>partial syllabus</option>' +
+      '<option value="custom"' + (state.bpScale.mode === 'custom' ? ' selected' : '') + '>custom</option></select> ' +
+      'paper marks <input type="number" min="1" max="200" style="width:70px" data-bpscale="marks" value="' + esc(marksInput || '') + '" placeholder="' + (bp.totals.marks || 80) + '"> ' +
+      (scaled ? '<span class="chip ' + (scaled.sum === +marksInput ? 'ok' : 'bad') + '">scaled sum ' + scaled.sum + '/' + marksInput + ' 🎯 deterministic largest-remainder</span>' : '') +
+      '</div>';
+    if (state.bpScale.mode !== 'full'){
+      h += '<p class="hint">Full-syllabus weightage is deliberately <b>not enforced</b> for ' + esc(state.bpScale.mode) + ' papers — the dynamic planner’s selected chapters/targets govern. Blueprint targets shown for reference only.</p>';
+    }
+    h += '<table class="grid"><thead><tr><th>Chapter</th><th class="num">Target marks</th><th class="num">% of paper</th><th class="num">Slots</th><th class="num">Fillable marks</th>' +
+      (scaled ? '<th class="num">Scaled</th>' : '') + '<th class="num">Gap</th><th>Status</th></tr></thead><tbody>';
+    var scaleBy = {};
+    if (scaled) scaled.chapters.forEach(function(c){ scaleBy[c.chapter_code] = c.scaled_marks; });
+    w.chapters.forEach(function(c){
+      var k = c.chapter_code || '—';
+      var pc = perChap[k] || { filled: 0, slots: 0, eligMarks: 0, short: 0 };
+      var st = pc.slots && pc.filled === pc.slots ? 'available' : pc.filled ? 'partially_available' : 'missing';
+      h += '<tr><td>' + esc(c.chapter || k) + (c.pool_conflict ? ' <span class="chip warn" title="chapter_pool declares ' + c.declared_pool_marks + ' marks but slots sum to ' + c.target_marks + '">pool≠slots</span>' : '') + '</td>' +
+        '<td class="num">' + c.target_marks + '</td><td class="num">' + c.pct + '%</td><td class="num">' + pc.slots + '</td>' +
+        '<td class="num">' + pc.eligMarks + '</td>' +
+        (scaled ? '<td class="num"><b>' + (scaleBy[k] != null ? scaleBy[k] : '—') + '</b></td>' : '') +
+        '<td class="num">' + (pc.short || 0) + '</td><td>' + bpStatus(st) + '</td></tr>';
+    });
+    h += '</tbody></table></div>';
+    // ---------- all slots ----------
+    var counts = {};
+    cov.per_slot.forEach(function(r){ counts[r.status] = (counts[r.status] || 0) + 1; });
+    h += '<div class="panel"><h3 style="margin-top:0">Slots — ' + cov.per_slot.length + ' ' +
+      Object.keys(counts).map(function(k){ return bpStatus(k).replace('stchip', 'stchip') + ' ×' + counts[k]; }).join(' ') +
+      '</h3><div style="overflow:auto"><table class="grid"><thead><tr><th>Slot</th><th>Sec</th><th>#</th><th>Chapter</th><th class="num">M</th><th>Type</th><th>Diff</th><th>Cog</th><th>Struct</th><th>Sub</th><th>IC</th><th>Dia</th><th class="num">Cand</th><th class="num">Elig</th><th class="num">Fam</th><th class="num">Tgt</th><th class="num">Short</th><th>Status</th></tr></thead><tbody>';
+    cov.per_slot.forEach(function(r, idx){
+      var open = state.bpOpenSlot === (r.slot_id || idx);
+      h += '<tr class="slrow" data-slox="' + idx + '"><td><b>' + esc(String(r.slot_id)) + '</b></td><td>' + esc(String(r.section || '—')) + '</td>' +
+        '<td class="num">' + (r.position == null ? '—' : r.position) + '</td><td>' + esc(String(r.chapter_code || '—')) + '</td>' +
+        '<td class="num">' + (r.marks == null ? '—' : r.marks) + '</td><td>' + esc(String(r.question_type || '—')) + '</td>' +
+        '<td>' + esc(String(r.difficulty || '—')) + '</td><td>' + esc(String(r.cognitive || '—')) + '</td>' +
+        '<td>' + esc(String(r.structure || '—')) + '</td>' +
+        '<td>' + (r.subparts ? esc(String(typeof r.subparts === 'object' ? (r.subparts.count || JSON.stringify(r.subparts).length) : r.subparts)) : '—') + '</td>' +
+        '<td>' + (r.internal_choice ? '<span class="chip info">yes</span>' : '—') + '</td>' +
+        '<td>' + (r.diagram_required === true ? '<span class="chip warn">req</span>' : (r.diagram_required === false ? 'no' : '—')) + '</td>' +
+        '<td class="num">' + r.candidate_versions + '</td><td class="num"><b>' + r.eligible_versions + '</b></td>' +
+        '<td class="num">' + (r.distinct_families == null ? '—' : r.distinct_families) + '</td>' +
+        '<td class="num">' + r.target_count + '</td><td class="num">' + (r.shortfall ? '<b>' + r.shortfall + '</b>' : 0) + '</td><td>' + bpStatus(r.status) + '</td></tr>';
+      if (open){
+        var cand = r.candidates && r.candidates.length
+          ? r.candidates.map(function(v2){ return '<span class="candid">#' + esc(String(v2)) + '</span>'; }).join('') + '<span class="hint"> (first ' + r.candidates.length + ' eligible version_ids)</span>'
+          : '<span class="hint">version ids not in this payload — load from the server (?view=all) for ids</span>';
+        var excl = [];
+        if (r.excluded.missing_answer) excl.push(r.excluded.missing_answer + ' without an answer');
+        if (r.excluded.bad_status) excl.push(r.excluded.bad_status + ' outside valid/approved/imported status');
+        if (r.excluded.needs_review != null) excl.push(r.excluded.needs_review + ' flagged needs_review');
+        var nears = Object.keys(r.near_misses.reasons).map(function(k2){ return esc(k2) + ' ×' + r.near_misses.reasons[k2]; }).join(' · ');
+        h += '<tr><td colspan="18"><div class="panel" style="margin:0;background:#fafbff">' +
+          '<b>Candidates</b><div>' + cand + '</div>' +
+          '<div class="excl"><b>Excluded / why not eligible:</b> ' + (excl.length ? esc(excl.join(' · ')) : 'nothing matched the slot shape at all') + '</div>' +
+          (r.near_misses.versions ? '<div class="excl"><b>Same chapter, wrong shape:</b> ' + r.near_misses.versions + ' version(s) — ' + nears + '</div>' : '') +
+          (r.has_constraints_left ? '<div class="excl">Slot carries cognitive/structure/diagram constraints; rows lacking those fields are NOT excluded by them (constraints only apply where data exists).</div>' : '') +
+          '<div class="excl">A question qualifies only if EVERY declared constraint matches — marks alone never qualify a slot.</div>' +
+          '</div></td></tr>';
+      }
+    });
+    h += '</tbody></table></div>';
+    if (v.errors.length || v.warnings.length)
+      h += '<div style="margin-top:8px" class="excl"><b>Validation:</b> ' +
+        v.errors.slice(0, 6).map(function(e){ return '<span class="chip bad">' + esc(e.code) + (e.slot_id ? ' @' + esc(String(e.slot_id)) : '') + '</span>'; }).join(' ') +
+        (v.errors.length > 6 ? ' +' + (v.errors.length - 6) + ' more' : '') + ' ' +
+        v.warnings.slice(0, 6).map(function(e){ return '<span class="chip warn">' + esc(e.code || String(e)) + '</span>'; }).join(' ') +
+        (v.warnings.length > 6 ? ' +' + (v.warnings.length - 6) + ' more' : '') + '</div>';
+    // acquisition priorities
+    var prio = cov.per_slot.filter(function(r){ return r.shortfall > 0; })
+      .sort(function(a, b){ return b.shortfall - a.shortfall; }).slice(0, 6);
+    if (prio.length)
+      h += '<div class="panel"><h3 style="margin-top:0">Acquisition priorities for this blueprint</h3><ul style="margin:0;padding-left:18px;font-size:12.5px">' +
+        prio.map(function(r){ return '<li><b>+' + r.shortfall + '</b> × ' + esc(String(r.question_type)) + ' ' + (r.marks || '?') + 'm for <b>' + esc(String(r.chapter_code)) + '</b> (slot ' + esc(String(r.slot_id)) + (r.difficulty ? ', ' + esc(r.difficulty) : '') + ')</li>'; }).join('') +
+        '</ul></div>';
+    return h;
+  }
+  function wireBp(el){
+    el.querySelectorAll('[data-bpcard]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var nav = state._navq[+b.getAttribute('data-bpcard')];
+        state.bpSel = nav.jumpBp; state.bpOpenSlot = null;
+        renderBlueprint();
+      });
+    });
+    el.querySelectorAll('[data-bpfilter]').forEach(function(sel){
+      sel.addEventListener('change', function(){
+        state.bpFilters[sel.getAttribute('data-bpfilter')] = sel.value;
+        renderBlueprint();
+      });
+    });
+    var clr = el.querySelector('[data-bpclearf]');
+    if (clr) clr.addEventListener('click', function(){
+      state.bpFilters = { question_type: '', marks: '', difficulty: '', cognitive: '', structure: '', diagram: '', review: '' };
+      renderBlueprint();
+    });
+    el.querySelectorAll('[data-bpscale]').forEach(function(inp){
+      var ev = inp.tagName === 'SELECT' ? 'change' : 'input';
+      inp.addEventListener(ev, function(){
+        state.bpScale[inp.getAttribute('data-bpscale')] = inp.value;
+        renderBlueprint();
+        var again = $('tab-bp').querySelector('[data-bpscale=\"marks\"]');
+        if (again && ev === 'input'){ again.focus(); }
+      });
+    });
+    el.querySelectorAll('.slrow').forEach(function(tr){
+      tr.addEventListener('click', function(){
+        var idx = +tr.getAttribute('data-slox');
+        var cur = bpCurrent();
+        var sid = cur && cur.cov && cur.cov.per_slot[idx] ? cur.cov.per_slot[idx].slot_id : null;
+        state.bpOpenSlot = state.bpOpenSlot === sid ? null : sid;
+        renderBlueprint();
+      });
+    });
+  }
+
+  function renderBlueprint(){
+    var el = $('tab-bp');
+    var raws = bpRawRows();
+    var h = '<h2>Blueprint × bank</h2>' +
+      '<p class="rdnote">Targets come <b>only from stored blueprint rows</b> (<code>public.blueprints</code> via <code>?view=all</code> / <code>?view=blueprints</code>, or a pasted blueprint JSON). ' +
+      'Where no blueprint exists, real inventory is still shown and targets read <b>unconfigured</b> — never invented. ' +
+      'Eligibility = the same rule the generator uses (status valid/approved/imported AND a non-empty answer), so raw inventory, eligible counts and slot fill are always separate columns.</p>';
+    if (!raws.length){
+      h += '<div class="panel"><h3 style="margin-top:0">No blueprints loaded</h3>' +
+        '<p class="hint" style="margin-top:0">Pull them with <b>Data → Load from n8n</b> (<code>?view=all</code>), or paste a blueprints JSON there. ' +
+        'A validation preview never writes to production tables.</p>' +
+        '<button class="btn" id="bpDemo">Load demo fixture — CBSE Class XII Math master (synthetic; acceptance numbers only)</button>' +
+        '</div>' + h2bpless();
+      el.innerHTML = h;
+      var d = $('bpDemo');
+      if (d) d.addEventListener('click', function(){ state.bpDemo = true; renderBlueprint(); });
+      return;
+    }
+    var cards = raws.map(function(b){
+      var bp = BPLIB.normalizeBlueprint(b);
+      var v = BPLIB.validateBlueprint(bp, {});
+      var id = bp.identity || {};
+      var ok = v.errors.length === 0;
+      var i = pushNav({ jumpBp: bp.blueprint_id });
+      return '<div class="scard" data-bpcard="' + i + '"><div class="t">📘 ' + esc(bp.blueprint_id || '(unnamed)') + '</div>' +
+        '<div class="kv"><span>Scope</span><b>' + esc([id.board, id.class ? 'Class ' + id.class : null, id.subject_code || id.subject].filter(Boolean).join(' · ') || 'unknown') + '</b></div>' +
+        '<div class="kv"><span>Schema</span><b>' + esc(bp.schema_version || '—') + '</b></div>' +
+        '<div class="kv"><span>Slots · marks</span><b>' + bp.totals.slots + ' · ' + bp.totals.marks + '</b></div>' +
+        '<div class="kv"><span>Chapters</span><b>' + bp.chapter_list.length + (bp.chapter_pool_derived ? ' <span class="hint">(derived)</span>' : '') + '</b></div>' +
+        '<div style="margin-top:8px"><span class="chip ' + (ok ? 'ok' : 'bad') + '">' + (ok ? 'valid' : v.errors.length + ' blocking errors') + '</span> ' +
+        '<span class="chip ' + (bp.published ? 'ok' : 'muted') + '">' + esc(bp.lifecycle) + '</span></div></div>';
+    }).join('');
+    state._navq = state._navq || [];
+    h += '<div class="cards">' + cards + '</div>';
+    if (!state.bpSel || !raws.some(function(b){ return (b.blueprint_id || '') === state.bpSel; }))
+      state.bpSel = (BPLIB.normalizeBlueprint(raws[0]).blueprint_id) || null;
+    var cur = bpCurrent();
+    if (cur) h += bpDetailHtml(cur) + bpTailHtml();
+    el.innerHTML = h + h2bpless();
+    wireBp(el);
+  }
+  function h2bpless(){
+    var list = bpScopesWithoutBp();
+    if (!list.length) return '';
+    return '<div class="panel"><h3 style="margin-top:0">Scopes without a blueprint</h3><p class="hint" style="margin-top:0">Real inventory below is still trustworthy; targets are simply unconfigured.</p><div>' +
+      list.map(function(r){
+        return '<span class="chip muted" style="margin:2px 6px 2px 0">Class ' + esc(String(r.class)) + ' · ' + esc(r.subject_code) +
+               ' — usable ' + r.usable + ' · no blueprint</span>';
+      }).join('') + '</div></div>';
+  }
+  function bpSelect(label, key, options){
+    var avail = options.length > 0 && !options.every(function(o){ return o === null; });
+    var cur = state.bpFilters[key] || '';
+    if (!avail) return '<div><label>' + esc(label) + '</label><select data-bpfilter="' + key + '" disabled title="not present in the loaded rows"><option>not in data</option></select></div>';
+    return '<div><label>' + esc(label) + '</label><select data-bpfilter="' + key + '"><option value="">all</option>' +
+      options.filter(function(o){ return o != null; }).map(function(o){
+        return '<option value="' + esc(String(o)) + '"' + (String(o) === String(cur) ? ' selected' : '') + '>' + esc(String(o)) + '</option>';
+      }).join('') + '</select></div>';
+  }
+  function bpDetailHtml(cur){
+    var bp = cur.bp, v = cur.v, cov = cur.cov;
+    var id = bp.identity || {};
+    var h = '<h3>📘 ' + esc(bp.blueprint_id) + ' <span class="hint">' + esc(bp.schema_version || '') + (state.bpDemo && !(state.server.blueprints && state.server.blueprints.length) ? ' · DEMO FIXTURE (from the spec\u2019s acceptance table, not the live row)' : '') + '</span></h3>';
+    if (!bp.has_targets){
+      return h + '<div class="panel"><span class="chip bad">no targets configured</span> <span class="hint">the stored matrix has no recognized slot layout — nothing below is guessed.</span>' +
+        (v.errors.length ? '<ul class="excl">' + v.errors.map(function(e){ return '<li>' + esc(e.message) + '</li>'; }).join('') + '</ul>' : '') + '</div>';
+    }
+    // meta strip — §3 metrics, all filter-consistent
+    var cmp = cov.compare;
+    var sumField = function(rows, k){ return rows.reduce(function(a, r){ return a + (+r[k] || 0); }, 0); };
+    var rawV = sumField(cur.filt, 'n_versions'), elV = sumField(cur.filt, 'n_usable');
+    var bs = cur.bankstats;
+    var bsv = function(k){ var vals = bs.map(function(r){ return r[k]; }).filter(function(x){ return x != null; });
+      return vals.length ? vals.reduce(function(a, x){ return a + (+x); }, 0) : null; };
+    var lastUpd = bs.map(function(r){ return r.last_updated; }).filter(Boolean).sort().pop() || null;
+    var chapPct = null;
+    if (cov){
+      var got = cov.per_slot.reduce(function(a, r){ return a + (r.marks || 0) * Math.min(r.eligible_versions, r.target_count); }, 0);
+      var want = bp.totals.marks || 1;
+      chapPct = Math.round(1000 * got / want) / 10;
+    }
+    h += '<div class="strip">' +
+      statBox('Target slots', bp.totals.slots) + statBox('Filled slots', cmp.filled_slots + ' / ' + cmp.target_slots) +
+      statBox('Slot coverage', (cmp.coverage_pct == null ? '—' : cmp.coverage_pct + '%')) +
+      statBox('Raw versions', rawV) + statBox('Eligible', elV) +
+      statBox('Logical questions', bsv('logical_questions') != null ? bsv('logical_questions') : (cmp.distinct_questions_approx != null ? '≈' + cmp.distinct_questions_approx : '—')) +
+      statBox('Families', bsv('families') != null ? bsv('families') : (cmp.distinct_families_approx != null ? '≈' + cmp.distinct_families_approx : '—')) +
+      statBox('Needs review', bsv('needs_review') != null ? bsv('needs_review') : '—') +
+      statBox('Missing answers', bsv('missing_answer') != null ? bsv('missing_answer') : sumField(cur.filt, 'n_no_answer') || '0') +
+      statBox('Invalid options', bsv('objective_options_missing') != null ? bsv('objective_options_missing') : '—') +
+      statBox('Diagrams missing', bsv('diagrams_missing') != null ? bsv('diagrams_missing') : '—') +
+      statBox('Marks: target vs fillable', (bp.totals.marks) + ' 🎯 / ' + cmp.usable_marks) +
+      '</div>' +
+      '<div class="hint" style="margin:-6px 0 10px">Blueprint &amp; schema <b>' + esc(bp.blueprint_id) + '</b> · <b>' + esc(bp.schema_version || '?') + '</b> · ' +
+      'bank last updated <b>' + esc(lastUpd || 'unknown — run against the server for freshness') + '</b> · ' +
+      'chapter coverage <b>' + (chapPct == null ? '—' : chapPct + '%') + '</b> <span class="hint">usable marks placeable against blueprint slots ÷ total paper marks</span></div>';
+    // filters
+    var opt = function(k){ return uniqArr(cur.scoped.map(function(r){ return r[k]; }).filter(function(x){ return x != null && x !== ''; })); };
+    h += '<div class="panel"><h3 style="margin-top:0">Filters <span class="hint">— every number, chip and table below respects them</span></h3><div class="bpfilter">' +
+      bpSelect('Question type', 'question_type', opt('question_type')) +
+      bpSelect('Marks', 'marks', opt('marks')) +
+      bpSelect('Difficulty', 'difficulty', opt('difficulty_norm')) +
+      bpSelect('Cognitive', 'cognitive', opt('cognitive')) +
+      bpSelect('Structure', 'structure', opt('structure')) +
+      '<div><label>Diagrams</label><select data-bpfilter="diagram"><option value="">all</option>' +
+        '<option value="missing"' + (state.bpFilters.diagram === 'missing' ? ' selected' : '') + '>asset missing</option>' +
+        '<option value="ok"' + (state.bpFilters.diagram === 'ok' ? ' selected' : '') + '>asset ok</option></select></div>' +
+      '<div><label>Review</label><select data-bpfilter="review"><option value="">all</option>' +
+        '<option value="only"' + (state.bpFilters.review === 'only' ? ' selected' : '') + '>needs review only</option></select></div>' +
+      '<button class="btn ghost" data-bpclearf>reset</button>' +
+      '</div></div>';
+    return h;
+  }
+  function bpPointerHtml(){
+    var n = state.nav;
+    if (!n.subject) return '';
+    var hit = bpRawRows().filter(function(b){
+      var id = BPLIB.normalizeBlueprint(b).identity || {};
+      return (id.class == null || String(id.class) === String(n.class)) &&
+             (id.subject_code == null || BPLIB.normKey(id.subject_code || id.subject) === BPLIB.normKey(n.subject));
+    })[0];
+    if (!hit) return '';
+    state._navq = state._navq || [];
+    var i = pushNav({ jump: hit.blueprint_id });
+    return '<div class="toolbar" style="margin:2px 0 10px"><button class="btn sec" data-bpjumps="' + i + '">' +
+      '📘 Blueprint coverage for ' + esc(String(hit.blueprint_id)) + ' →</button></div>';
+  }
+
   /* ---------------- Plan: what to add / what's lacking ---------------- */
   function renderPlan(){
     var el = $('tab-plan');
@@ -1380,6 +2324,23 @@ function makeSampleData(){
     $('loadPaste').addEventListener('click', function(){
       var msg = $('dataMsg');
       try {
+        // blueprint paste? an object (or array) carrying blueprint_id + matrix is a
+        // BLUEPRINT, never a cell row — route it to the Blueprint tab instead.
+        var txt = $('pasteBox').value.trim();
+        if (/[{\[]/.test(txt)){
+          try {
+            var pj = JSON.parse(txt);
+            var cand = Array.isArray(pj) ? pj : (pj && pj.data && pj.data.blueprints) || (pj && pj.blueprint_id ? [pj] : null);
+            if (cand && cand.length && cand.every(function(x){ return x && x.blueprint_id && (x.matrix || typeof x.matrix === 'string'); })){
+              state.server = Object.assign({}, state.server, {blueprints: cand});
+              state.bpSel = null;
+              msg.className = 'msg okmsg';
+              msg.textContent = 'Loaded ' + cand.length + ' blueprint row(s) → open the Blueprint tab.';
+              if (state.active === 'bp') renderBlueprint();
+              return;
+            }
+          } catch (pe){ /* not JSON — normal cell paste path below */ }
+        }
         var raw = parseInput($('pasteBox').value);
         if (!raw.length){ msg.className = 'msg err'; msg.textContent = 'Nothing to parse — paste CSV or JSON first.'; return; }
         loadData(raw, 'pasted data');   // re-renders the Data tab → old msg node is detached
@@ -1404,11 +2365,13 @@ function makeSampleData(){
         if (!data) throw new Error('expected {data:{\u2026}} or a JSON array — use ?view=all or ?view=cells');
         var cells = data.cells || [];
         var server = {readiness: data.readiness || [], classes: data.classes || [],
-                      capacity: data.capacity || [], actions: data.actions || []};
+                      capacity: data.capacity || [], actions: data.actions || [],
+                      blueprints: data.blueprints || [], slotbank: data.slotbank || [],
+                      bankstats: data.bankstats || []};
         loadData(cells, 'n8n API', server);   // re-renders this tab → re-query the msg node
         var ok2 = $('dataMsg');
         ok2.className = 'msg okmsg';
-        var extra = ['readiness','classes','capacity','actions'].filter(function(k){ return server[k].length; })
+        var extra = ['readiness','classes','capacity','actions','blueprints','slotbank','bankstats'].filter(function(k){ return server[k].length; })
                       .map(function(k){ return k + ' (' + server[k].length + ')'; });
         ok2.textContent = 'Loaded ' + cells.length + ' cell rows' +
           (extra.length ? ' + ' + extra.join(', ') : ' (no server views in payload — use ?view=all)') + '.';
@@ -1459,6 +2422,18 @@ function makeSampleData(){
       } else {
         exportObj(readinessRows(), ['lvl','board','class','stream','subject_code','chapters','total','usable','unused_usable','cells_met','cells_total','ideal_healthy','coverage_pct','capacity_papers','tier','curriculum_pct','readiness'], 'readiness_scopes.csv');
       }
+    } else if (state.active === 'bp'){
+      var cur = bpCurrent();
+      if (cur && cur.cov){
+        exportObj(cur.cov.per_slot.map(function(r){
+          return { slot_id:r.slot_id, section:r.section, position:r.position, chapter:r.chapter_code,
+                   marks:r.marks, question_type:r.question_type, difficulty:r.difficulty,
+                   target:r.target_count, eligible:r.eligible_versions, status:r.status,
+                   shortfall:r.shortfall, families:r.distinct_families };
+        }), ['slot_id','section','position','chapter','marks','question_type','difficulty','target','eligible','status','shortfall','families'], 'blueprint_slot_coverage.csv');
+      } else if (cur){
+        exportObj(cur.w.chapters, ['chapter_code','chapter','target_marks','pct','slots'], 'blueprint_weightage.csv');
+      }
     } else if (state.active === 'plan'){
       var lines = ['section,scope,slot,per_paper,have,need,add_or_gap,severity,detail'];
       (state.lastPlan || []).forEach(function(r){
@@ -1493,6 +2468,7 @@ function makeSampleData(){
 
   function renderActive(){
     if (state.active === 'explorer') renderExplorer();
+    else if (state.active === 'bp') renderBlueprint();
     else if (state.active === 'plan') renderPlan();
     else if (state.active === 'chapters') renderOverview();
     else if (state.active === 'matrix') renderMatrix();
@@ -1511,6 +2487,7 @@ function makeSampleData(){
     state.source = label;
     state.nav = {board: null, class: null, stream: null, subject: null, chapter: null};
     state.lastHeat = null; state.lastPlan = null;
+    state.bpSel = null; state.bpOpenSlot = null;
     renderAll();
   }
 
@@ -1541,5 +2518,5 @@ function makeSampleData(){
 })();
 
 </script>
-</body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a48e83686ecb0ee1',t:'MTc5MTcyODUwOA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
