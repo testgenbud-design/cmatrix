@@ -20,6 +20,29 @@
   h1{margin:0 0 2px;font-size:20px}
   .sub{color:var(--muted);margin:0 0 14px;font-size:13px}
   .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px}
+  .chapcard{border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;background:#fff;
+             transition:border-color .15s,box-shadow .15s}
+  .chapcard:hover{border-color:#1b3a63;box-shadow:0 2px 10px rgba(20,40,80,.10)}
+  .chapcard .ttl{font-weight:700;font-size:14px}
+  .chapcard .cn{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;font-size:12px;color:#445}
+  .chapcard .cbar{height:5px;border-radius:3px;background:#eef1f6;margin-top:8px;overflow:hidden}
+  .chapcard .cbar i{display:block;height:100%;background:#2e6f9e;border-radius:3px}
+  details.adv{margin-top:14px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 12px}
+  details.adv > summary{cursor:pointer;font-weight:600;font-size:12px;color:#1b3a63;list-style:none}
+  .piewrap{display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-top:8px}
+  .pieleg{font-size:12px;border-collapse:collapse}
+  .pieleg td{padding:2px 10px 2px 0}
+  .pieleg .sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px}
+  table.grid tr.catrow td{background:#f2f5fa;font-size:13px}
+  .boardbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0 10px;font-size:13px;
+             background:#f2f5fa;border:1px solid var(--line);border-radius:10px;padding:7px 10px}
+  .boardbar .lbl{font-weight:700;letter-spacing:.5px;text-transform:uppercase;font-size:11px;color:#3a4a5f}
+  .boardbar .bchip{border:1px solid var(--line);background:#fff;border-radius:14px;padding:3px 12px;
+                   cursor:pointer;font:inherit;transition:background .15s}
+  .boardbar .bchip:hover{border-color:#1b3a63}
+  .boardbar .bchip.sel{background:#1b3a63;color:#fff;border-color:#1b3a63;font-weight:600}
+  .boardbar .bchip .cnt{opacity:.7;font-weight:400}
+  .boardbar .bchip.sel .cnt{opacity:.85}
   .kpi{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 12px}
   .kpi .v{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
   .kpi .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
@@ -146,6 +169,7 @@
 <header>
   <h1>Question Bank — Coverage Matrix</h1>
   <p class="sub">Chapters × question type × difficulty × marks, with topic drill-down, quality flags and gap analysis.</p>
+  <div class="boardbar" id="boardbar" role="navigation" aria-label="Board selector"></div>
   <div class="cards" id="cards"></div>
   <nav id="tabs"></nav>
   <div class="controls">
@@ -159,6 +183,7 @@
 <main>
   <section id="tab-explorer"  class="tab"></section>
   <section id="tab-bp"        class="tab"></section>
+  <section id="tab-cog"       class="tab"></section>
   <section id="tab-plan"      class="tab"></section>
   <section id="tab-chapters"  class="tab"></section>
   <section id="tab-matrix"    class="tab"></section>
@@ -180,6 +205,9 @@ var ALIASES = {
   question_type:['question_type','questiontype','type','qtype','question_format','format'],
   difficulty:   ['difficulty','level','difficulty_level','diff'],
   marks:        ['marks','mark','weight','max_marks','points'],
+  board:        ['board','board_name','exam_board','education_board'],
+  class:        ['class','class_name','grade','standard','class_level'],
+  subject_code: ['subject_code','subjectcode','subject','sub_code'],
   count:        ['count','total','questions','num_questions','q_count','question_count','n'],
   with_answer:  ['with_answer','with_answers','answered','answers','has_answer','answer_present'],
   needs_review: ['needs_review','review','flag_review','to_review'],
@@ -212,7 +240,8 @@ function fmtMarks(m){
 
 function normalizeRow(obj){
   var out = {chapter_code:'', chapter_name:'', topic_name:'', question_type:'', difficulty:'',
-             marks:'', count:1, with_answer:0, needs_review:0, with_diagram:0, target:null};
+             marks:'', count:1, with_answer:0, needs_review:0, with_diagram:0, target:null,
+             board:'', class:'', subject_code:''};
   for (var k in obj){
     var f = mapKey(k);
     if (!f) continue;
@@ -540,7 +569,8 @@ function parseMaybeJson(v){ if (typeof v === 'string'){ try { return JSON.parse(
 
 // canonical slot/dimension vocabularies (recognition only — unknown values are
 // PRESERVED and flagged, never dropped, never defaulted)
-var DIFF_LABEL = { easy: 'easy', medium: 'medium', hard: 'hard' };
+var DIFF_LABEL = { easy: 'easy', medium: 'medium', hard: 'hard',
+  difficult: 'hard' }; // display-label alias only — stored values are never renamed
 var TYPE_ALIASES = {
   'mcq': 'MCQ', 'multiple choice': 'MCQ', 'multiple choice question': 'MCQ',
   'assertion reason': 'Assertion-Reason', 'ar': 'Assertion-Reason',
@@ -1046,7 +1076,247 @@ function makeMasterFixture(){
   };
 }
 
+// ============================================================
+// MINIMUM INVENTORY POLICY — single source of truth (spec §4/§11)
+// The n8n Build Queries node generates its SQL VALUES clause from
+// INVENTORY_POLICY; coverage-matrix.html reads the SAME object from this
+// embedded copy (test/patch_docs.js --check enforces byte-identity, and
+// test/blueprint.test.js fails on drift). Overrides live in
+// public.coverage_requirements — never in code. Targets are a FLOOR,
+// not a cap; higher overrides are additive, no redesign needed.
+// ============================================================
+var INVENTORY_POLICY = {
+  reference_marks: 20, // nominal reference paper: 20 marks
+  difficulties: ['easy', 'medium', 'hard'], // stored values; UI labels via DIFF_LABEL (hard → 'Difficult')
+  by_marks: {
+    1: { approx: 20, easy: 15, medium: 15, hard: 15 },
+    2: { approx: 10, easy: 8,  medium: 8,  hard: 8  },
+    3: { approx: 7,  easy: 5,  medium: 5,  hard: 5  },
+    4: { approx: 5,  easy: 3,  medium: 3,  hard: 3  },
+    5: { approx: 4,  easy: 3,  medium: 3,  hard: 3  }
+  }
+};
+// Legacy per-paper slot policy (readiness/capacity) — ALSO single-sourced here.
+// [question_type, marks, per_paper, floor_target, depth_target]
+var PAPER_POLICY = {
+  slots: [
+    ['MCQ', 1, 14, 3, 10],
+    ['Assertion-Reason', 1, 4, 3, 6],
+    ['Very Short Answer', 2, 5, 3, 5],
+    ['Short Answer', 2, 5, 3, 5],
+    ['Short Answer', 3, 6, 3, 5],
+    ['Case-Based', 4, 4, 3, 4],
+    ['Long Answer', 5, 4, 3, 4]
+  ],
+  goals: { viable: 1, healthy: 10, strong: 25, diffEasy: 30, diffMedium: 40, diffHard: 30, freshPct: 50 },
+  weights: { curriculum: 0.30, marks: 0.20, types: 0.20, difficulty: 0.15, rotation: 0.15 }
+};
+
+function inventoryTargetFor(marks) {
+  var m = toInt(marks);
+  return (m != null && INVENTORY_POLICY.by_marks[m]) ? INVENTORY_POLICY.by_marks[m] : null;
+}
+// Targets for one (type × marks) category at each difficulty. ov = optional
+// coverage_requirements override {easy, medium, hard} — an explicit 0 means
+// "no target for that difficulty" (a decision), distinct from NULL (inherit
+// policy) and from a category with no policy row at all.
+function inventoryCellTargets(marks, ov) {
+  var base = inventoryTargetFor(marks);
+  var out = { easy: null, medium: null, hard: null, total: 0, any: false, overridden: false, policy: !!base };
+  INVENTORY_POLICY.difficulties.forEach(function (d) {
+    var v;
+    if (ov && ov[d] !== undefined && ov[d] !== null) { v = toInt(ov[d]); out.overridden = true; }
+    else v = base ? base[d] : null;
+    out[d] = v;
+    if (v != null && v > 0) { out.total += v; out.any = true; }
+  });
+  if (!out.any) out.total = null;
+  return out;
+}
+// §11 formulas — deficit max(0, t-a); coverage min(100, a/t*100); zero/undefined
+// target → status 'no_target', never a division.
+function inventoryEvalCell(actual, target) {
+  var a = toInt(actual); if (a === null || a < 0) a = 0;
+  var t = toInt(target);
+  if (t === null || t <= 0) return { target: null, deficit: null, coverage_pct: null, meets: null, status: 'no_target' };
+  var def = Math.max(0, t - a);
+  return { target: t, deficit: def, coverage_pct: Math.min(100, a / t * 100), meets: def === 0,
+           status: def === 0 ? 'meets' : 'below' };
+}
+
+// ---------- canonical cognitive levels (§8) ----------
+// Stored values are normalized (lower+trim via normKey); abbreviations fold to
+// the SAME category, never a duplicate one. Unknown non-empty values stay
+// visible as 'noncanonical' (we do not silently bucket them into Remember/…).
+var COG_CANON = {
+  remember: 'Remember', recall: 'Remember', knowledge: 'Remember', r: 'Remember', rem: 'Remember',
+  understand: 'Understand', understanding: 'Understand', comprehension: 'Understand', u: 'Understand', und: 'Understand',
+  apply: 'Apply', application: 'Apply', applying: 'Apply', app: 'Apply', ap: 'Apply', app: 'Apply',
+  analyze: 'Analyze', analyse: 'Analyze', analysis: 'Analyze', analytical: 'Analyze', analyzing: 'Analyze',
+  analysing: 'Analyze', an: 'Analyze', ana: 'Analyze',
+  evaluate: 'Evaluate', evaluation: 'Evaluate', evaluating: 'Evaluate', eval: 'Evaluate', e: 'Evaluate'
+};
+var COG_ORDER = ['Remember', 'Understand', 'Apply', 'Analyze', 'Evaluate'];
+function canonicalCognitive(raw) {
+  var k = normKey(raw);
+  if (!k) return { level: null, status: 'unclassified', display: 'Unclassified' };
+  if (COG_CANON[k]) return { level: COG_CANON[k], status: 'canonical', display: COG_CANON[k] };
+  var first = k.split(' ')[0];
+  if (COG_CANON[first]) return { level: COG_CANON[first], status: 'canonical', display: COG_CANON[first] };
+  return { level: null, status: 'noncanonical', display: String(raw).trim() };
+}
+
+// ---------- 20-mark feasibility (bounded subset-sum, exact) ----------
+// countsByMark: { marks: eligibleCount } — can ANY selection of distinct
+// questions total the target exactly? Inventory target ≠ feasibility proof;
+// this answers the feasibility question separately (spec §6/§3).
+function canMakeMarks(countsByMark, target) {
+  target = toInt(target); if (!target || target < 0) return false;
+  var mask = (1 << (target + 1)) - 1, reach = 1;
+  Object.keys(countsByMark || {}).forEach(function (k) {
+    var m = toInt(k), n = toInt(countsByMark[k]);
+    if (!m || m <= 0 || !n || n <= 0 || m > target) return;
+    var steps = Math.min(n, Math.floor(target / m));
+    for (var i = 0; i < steps; i++) { reach = (reach | (reach << m)) & mask; }
+  });
+  return ((reach >> target) & 1) === 1;
+}
+
+// ---------- client-side inventory computation (pasted/demo rows) ----------
+// rows: {board,class,subject_code,chapter_code,chapter,question_type,marks,
+//        difficulty, eligible, raw}  (eligible/raw = distinct usable units /
+// rows seen for that combo). Filters narrow by board/class/subject/chapter.
+function inventoryFromRows(rows, scope) {
+  scope = scope || {};
+  var match = function (r) {
+    if (scope.board != null && scope.board !== '' && !normEq(r.board, scope.board)) return false;
+    if (scope.class != null && scope.class !== '' && String(r.class) !== String(scope.class)) return false;
+    if (scope.subject_code != null && scope.subject_code !== '' && !normEq(r.subject_code, scope.subject_code)) return false;
+    if (scope.chapter_code != null && scope.chapter_code !== '' && !normEq(r.chapter_code, scope.chapter_code)) return false;
+    return true;
+  };
+  var cells = {}, chapters = {};
+  (rows || []).forEach(function (r) {
+    if (!match(r)) return;
+    var ch = s(r.chapter_code) || s(r.chapter) || '(uncoded)';
+    var ty = s(r.question_type) || '(untyped)';
+    var mk = toInt(r.marks);
+    var d = normDifficulty(r.difficulty);
+    var key = ch + '\u0001' + ty + '\u0001' + (mk === null ? '' : mk);
+    var cat = cells[key] || (cells[key] = { chapter_code: ch, chapter: s(r.chapter) || ch,
+      question_type: ty, marks: mk, by_diff: {}, marks_by_diff: {}, raw_total: 0, eligible_total: 0 });
+    if (d) cat.by_diff[d] = (cat.by_diff[d] || 0) + (toInt(r.eligible) || 0);
+    cat.raw_total += toInt(r.raw) || 0;
+    cat.eligible_total += toInt(r.eligible) || 0;
+  });
+  var list = Object.keys(cells).map(function (k) { return cells[k]; });
+  var totDef = 0, totT = 0, totMin = 0, catsMeets = 0, catsBelow = 0;
+  var chMap = {};
+  list.forEach(function (c) {
+    var tg = inventoryCellTargets(c.marks, null);
+    var catDef = 0, catT = 0, catA = 0, catAllMeets = true, hasT = false;
+    INVENTORY_POLICY.difficulties.forEach(function (d) {
+      var ev = inventoryEvalCell(c.by_diff[d] || 0, tg[d]);
+      c[d] = { actual: c.by_diff[d] || 0, target: ev.target, deficit: ev.deficit, status: ev.status };
+      if (ev.target != null) {
+        hasT = true; catDef += ev.deficit; catT += ev.target; catA += Math.min(c[d].actual, ev.target);
+        if (!ev.meets) catAllMeets = false;
+      }
+    });
+    c.target_total = tg.any ? catT : null;
+    c.deficit = hasT ? catDef : null;
+    c.coverage_pct = tg.any && catT ? Math.min(100, c.eligible_total / catT * 100) : null;
+    c.status = !tg.any ? 'no_target' : catAllMeets ? 'meets' : 'below';
+    c.untargeted = tg.policy ? [] : ['marks value ' + (c.marks === null ? 'missing' : c.marks) + ' has no policy row'];
+    if (c.status === 'meets') catsMeets++; else if (c.status === 'below') catsBelow++;
+    if (c.deficit) totDef += c.deficit;
+    totT += catT; totMin += catA;
+    var h = chMap[c.chapter_code] || (chMap[c.chapter_code] = { chapter_code: c.chapter_code, chapter: c.chapter,
+      eligible: 0, raw: 0, cats_meeting: 0, cats_below: 0, cats_no_target: 0, deficit: 0, target_total: 0,
+      satisfied_units: 0, by_mark: {}, meets: true, type_marks: {} });
+    h.eligible += c.eligible_total; h.raw += c.raw_total;
+    if (c.status === 'meets') h.cats_meeting++;
+    else if (c.status === 'below') h.cats_below++;
+    else h.cats_no_target++;
+    if (c.deficit) h.deficit += c.deficit;
+    if (c.target_total) { h.target_total += c.target_total; h.satisfied_units += Math.min(c.eligible_total, c.target_total); }
+    if (c.status === 'below') h.meets = false;
+    if (c.marks != null) h.by_mark[c.marks] = (h.by_mark[c.marks] || 0) + c.eligible_total;
+    (h.type_marks[c.question_type] || (h.type_marks[c.question_type] = {}))[c.marks] =
+      ((h.type_marks[c.question_type] || {})[c.marks] || 0) + c.eligible_total;
+  });
+  var chList = Object.keys(chMap).map(function (k) {
+    var h = chMap[k];
+    h.readiness_pct = h.target_total ? Math.min(100, h.satisfied_units / h.target_total * 100) : null;
+    h.supports_20 = {};
+    Object.keys(h.type_marks).forEach(function (ty) {
+      h.supports_20[ty] = canMakeMarks(h.type_marks[ty], INVENTORY_POLICY.reference_marks);
+    });
+    delete h.type_marks;
+    return h;
+  }).sort(function (a, b) { return (b.deficit || 0) - (a.deficit || 0); });
   return {
+    cells: list,
+    chapters: chList,
+    scope: {
+      total_raw: list.reduce(function (n, c) { return n + c.raw_total; }, 0),
+      total_eligible: list.reduce(function (n, c) { return n + c.eligible_total; }, 0),
+      chapters_meeting: chList.filter(function (h) { return h.meets; }).length,
+      chapters_below: chList.filter(function (h) { return !h.meets; }).length,
+      total_deficit: totDef,
+      inventory_readiness_pct: totT ? totMin / totT * 100 : null,
+      categories_meeting: catsMeets,
+      categories_below: catsBelow
+    }
+  };
+}
+
+// ---------- client-side cognitive pivot (§8) ----------
+// rows: {question_type, marks, difficulty, cognitive (raw stored value), eligible}
+function cognitivePivotFromRows(rows, scope) {
+  scope = scope || {};
+  var t = String(scope.marks || '').trim(), d = normDifficulty(scope.difficulty), top = s(scope.chapter_code) || null;
+  var byType = {}, order = COG_ORDER.slice();
+  var extra = {}, unclassified = 0, eligible_total = 0;
+  (rows || []).forEach(function (r) {
+    if (scope.board && !normEq(r.board, scope.board)) return;
+    if (scope.class && String(r.class) !== String(scope.class)) return;
+    if (scope.subject_code && !normEq(r.subject_code, scope.subject_code)) return;
+    if (top && !normEq(r.chapter_code, top)) return;
+    if (t && String(toInt(r.marks)) !== t) return;
+    if (d && normDifficulty(r.difficulty) !== d) return;
+    var n = toInt(r.eligible); if (!n || n <= 0) return;
+    var ty = s(r.question_type) || '(untyped)';
+    var cc = canonicalCognitive(r.cognitive);
+    var bucket = byType[ty] || (byType[ty] = { question_type: ty, levels: {}, diff: {}, marks: {}, total: 0, unclassified: 0 });
+    var key = cc.level || (cc.status === 'unclassified' ? '__unclassified' : cc.display);
+    bucket.levels[key] = (bucket.levels[key] || 0) + n;
+    var dd = normDifficulty(r.difficulty); if (dd) { bucket.diff[key] || (bucket.diff[key] = {}); bucket.diff[key][dd] = (bucket.diff[key][dd] || 0) + n; }
+    var mm = toInt(r.marks); if (mm != null) { bucket.marks[key] || (bucket.marks[key] = {}); bucket.marks[key][mm] = (bucket.marks[key][mm] || 0) + n; }
+    if (cc.level) { if (order.indexOf(cc.level) === -1) order.push(cc.level); }
+    else if (cc.status === 'noncanonical') extra[cc.display] = (extra[cc.display] || 0) + n;
+    else unclassified += n;
+    bucket.total += n; eligible_total += n;
+  });
+  return { order: order, extra_labels: extra, unclassified_total: unclassified,
+    eligible_total: eligible_total, rows: Object.keys(byType).map(function (ty) {
+      var b = byType[ty];
+      b.pct = {}; Object.keys(b.levels).forEach(function (k) { b.pct[k] = b.total ? b.levels[k] / b.total * 100 : null; });
+      return b;
+    }).sort(function (a, b) { return b.total - a.total; }) };
+}
+
+  return {
+    INVENTORY_POLICY: INVENTORY_POLICY,
+    PAPER_POLICY: PAPER_POLICY,
+    inventoryTargetFor: inventoryTargetFor,
+    inventoryCellTargets: inventoryCellTargets,
+    inventoryEvalCell: inventoryEvalCell,
+    canonicalCognitive: canonicalCognitive,
+    COG_ORDER: COG_ORDER,
+    canMakeMarks: canMakeMarks,
+    inventoryFromRows: inventoryFromRows,
+    cognitivePivotFromRows: cognitivePivotFromRows,
     normalizeBlueprint: normalizeBlueprint,
     validateBlueprint: validateBlueprint,
     matchSlots: matchSlots,
@@ -1064,7 +1334,8 @@ function makeMasterFixture(){
 (function(){
 
   var state = {
-    rows: [], raw: [], server: {}, source: '', agg: null, active: 'explorer',
+    rows: [], raw: [], rowsAll: [], rawAll: [], board: null,
+    server: {}, source: '', agg: null, active: 'explorer',
     pivot: {rowDim:'chapter', colDim:'question_type|difficulty'},
     opts: {chapterMin:30, cellTarget:3},
     sort: {}, selectedCell: null,
@@ -1076,7 +1347,7 @@ function makeMasterFixture(){
   };
 
   var TABS = [
-    ['explorer','Explorer'], ['bp','Blueprint'], ['plan','Add / Missing'],
+    ['explorer','Explorer'], ['bp','Blueprint'], ['cog','Cognitive'], ['plan','Add / Missing'],
     ['chapters','Chapters'], ['matrix','Matrix'], ['data','Data']
   ];
 
@@ -1098,6 +1369,7 @@ function makeMasterFixture(){
       ['Disjoint papers (min)', minCap == null ? '—' : minCap + ' 📄', minCap != null && minCap < RD_GOALS.healthy ? 'warn' : 'ok'],
       ['Empty chapters', g.emptyChapters.length, g.emptyChapters.length ? 'bad' : 'ok']
     ];
+    invTiles().forEach(function(t){ defs.push(t); });
     $('cards').innerHTML = defs.map(function(d){
       return '<div class="kpi ' + d[2] + '"><div class="v">' + esc(d[1]) + '</div><div class="l">' + esc(d[0]) + '</div></div>';
     }).join('');
@@ -1207,14 +1479,272 @@ function makeMasterFixture(){
     cols.push({label:'Review', key:'needs_review', cls:'num'});
     cols.push({label:'Diagrams', key:'diagrams', cls:'num'});
     cols.push({label:'Status', key:'total', cls:'', render:function(r){ return statusChip(r._raw); }});
+    var inv = invSummary(); var byCh = {};
+    if (inv) (inv.chapters || []).forEach(function(h){ byCh[String(h.chapter_code)] = h; });
+    var H = function(r){ return byCh[String(r._raw.code)] || null; };
+    cols.push({label:'Floor', key:'floor_met', cls:'', render:function(r){ var h = H(r);
+      return !h ? '—' : (h.meets ? '<span class="chip ok">meets floor</span>' : '<span class="chip warn">below floor</span>'); }});
+    cols.push({label:'Cats ok/short', key:'cats', cls:'num', render:function(r){ var h = H(r);
+      return !h ? '—' : (h.cats_meeting + ' / ' + h.cats_below); }});
+    cols.push({label:'Inv. deficit', key:'inv_def', cls:'num', render:function(r){ var h = H(r);
+      r.inv_def = h ? h.deficit : null; return h ? h.deficit : '—'; }});
+    cols.push({label:'Inv. readiness', key:'inv_rdy', cls:'num', render:function(r){ var h = H(r);
+      if (!h || h.readiness_pct == null) return '—';
+      r.inv_rdy = Math.round(h.readiness_pct); return r.inv_rdy + '%'; }});
+    cols.push({label:'20-mark types', key:'mk20', cls:'', render:function(r){ var h = H(r);
+      if (!h) return '—';
+      var ok = Object.keys(h.supports_20 || {}).filter(function(t){ return h.supports_20[t]; });
+      return ok.length ? '<span class="chip ok">' + ok.length + ' can build</span>' : '<span class="chip warn">none yet</span>'; }});
     return cols;
   }
   function renderOverview(){
     var el = $('tab-chapters');
     el.innerHTML = '<h2>Chapter summary</h2><div class="panel">' +
-      buildTable('overview', overviewCols(), overviewRows(), {defaultSort:'total'}) +
-      '</div><p class="hint">Click any column header to sort. "Marks mix" shows question counts per marks value, e.g. 1×42 · 2×25 · 5×10.</p>';
+      buildTable('overview', overviewCols(), overviewRows(), {defaultSort:'inv_def'}) +
+      '</div><p class="hint">Click any column header to sort — default is biggest inventory deficit, the expansion work list. "Marks mix" shows question counts per marks value, e.g. 1×42 · 2×25 · 5×10.</p>'
+      + invChapterPanel();
     wireSort(el, renderOverview);
+    var cc = el.querySelector('[data-cogch]');
+    if (cc) cc.addEventListener('change', function(){ state.cogCh = cc.value; renderOverview(); });
+  }
+
+  // ---------- View C: per-chapter question-type floor board ----------
+  function invFloorCells(){
+    if (state.server && (state.server.inventory || []).length) return boardOfServer('inventory');
+    var inv = invSummary();
+    return (inv && inv.cells) || [];
+  }
+  function invChapterPanel(){
+    var cells = invFloorCells().filter(function(c){ return c.chapter_code != null; });
+    if (!cells.length) return '<p class="hint">Per-cell floor detail (type × marks × difficulty against the 20-mark policy) needs the <code>inventory</code> view — the API payload includes it under <code>view=all</code>; pasted matrices without a marks column cannot carry it.</p>';
+    var chs = cells.map(function(c){ return String(c.chapter_code); })
+      .filter(function(v, i, arr){ return arr.indexOf(v) === i; }).sort();
+    var sel = (state.cogCh && chs.indexOf(state.cogCh) >= 0) ? state.cogCh : chs[0];
+    var byT = {};
+    cells.filter(function(c){ return String(c.chapter_code) === sel; }).forEach(function(c){
+      var k = c.question_type + '\u0001' + c.marks;
+      var b = byT[k] || (byT[k] = {type: c.question_type, marks: +c.marks, d: {}, act: 0, tgt: 0, any: false});
+      b.d[c.difficulty] = {a: +c.eligible || 0, t: c.target == null ? null : +c.target};
+      b.act += +c.eligible || 0;
+      if (c.target != null && +c.target > 0){ b.tgt += +c.target; b.any = true; }
+    });
+    var inv = invSummary();
+    var hInv = inv && (inv.chapters || []).filter(function(h){ return String(h.chapter_code) === sel; })[0];
+    var rows = Object.keys(byT).sort().map(function(k){
+      var b = byT[k];
+      var d = ['easy', 'medium', 'hard'].map(function(dd){
+        var x = b.d[dd] || {a: 0, t: null};
+        return x.t == null ? (x.a + ' / —') : (x.a + ' / ' + x.t);
+      });
+      var stat = !b.any ? '<span class="chip">no target</span>'
+               : (b.act >= b.tgt ? '<span class="chip ok">meets</span>' : '<span class="chip warn">below by ' + (b.tgt - b.act) + '</span>');
+      var s20 = hInv && hInv.supports_20 ? hInv.supports_20[b.type] : null;
+      return '<tr><th scope="row">' + esc(b.type) + '</th><td class="num">' + b.marks + '</td>' +
+        '<td class="num">' + d[0] + '</td><td class="num">' + d[1] + '</td><td class="num">' + d[2] + '</td>' +
+        '<td class="num"><b>' + b.act + ' / ' + (b.any ? b.tgt : '—') + '</b></td><td>' + stat + '</td><td>' +
+        (s20 == null ? '—' : s20 ? '<span class="chip ok">can build 20</span>'
+                                  : '<span class="chip warn">cannot make 20</span>') + '</td></tr>';
+    }).join('');
+    return '<h2>Question-type floor — ' + esc(sel) + '</h2><div class="panel">' +
+      '<div class="bar"><label for="cogChSel">Chapter</label> <select id="cogChSel" data-cogch>' +
+      chs.map(function(c){ return '<option value="' + esc(c) + '"' + (c === sel ? ' selected' : '') + '>' + esc(c) + '</option>'; }).join('') +
+      '</select></div><div class="tbl-wrap"><table class="grid"><thead><tr><th>Question type</th><th class="num">Marks</th>' +
+      '<th class="num">Easy a/t</th><th class="num">Medium a/t</th><th class="num">Difficult a/t</th>' +
+      '<th class="num">Total a/t</th><th>Status</th><th>20-mark paper</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      '<p class="hint">a/t = eligible units / policy target (Easy·Medium·Difficult floors from the 20-mark reference test; the stored value <code>hard</code> shows as Difficult). "no target" = category without a policy row — excluded from readiness math, not zero. The 20-mark column is exact bounded subset-sum over distinct eligible units for this type — a met inventory floor and 20-mark feasibility are independent facts (spec §6).</p></div>';
+  }
+
+  // ---------- inventory rollup source: server first, then cells, then local rows ----------
+  function invSummary(){
+    var srv = state.server || {};
+    var cells0 = boardOfServer('inventory');
+    if (cells0.length) return invRollupFromCells(cells0);   // recompute so the bar's board ALWAYS holds
+    if (srv.inventory_summary) return srv.inventory_summary;
+    var rows = state.rows || [];
+    if (rows.some(function(r){ return r.marks != null && r.difficulty; })) {
+      return BPLIB.inventoryFromRows(rows.map(function(r){
+        return {board: r.board, class: r.class, subject_code: r.subject_code,
+                chapter_code: r.chapter_code || r.chapter, chapter: r.chapter,
+                question_type: r.question_type, marks: r.marks, difficulty: r.difficulty,
+                eligible: (r.usable != null ? r.usable : r.count), raw: r.count};
+      }), {});
+    }
+    return null;
+  }
+  function invRollupFromCells(cells){
+    var byCh = {}, scope = {total_raw: 0, total_eligible: 0, chapters_meeting: 0, chapters_below: 0,
+      total_deficit: 0, inventory_readiness_pct: null, categories_meeting: 0, categories_below: 0,
+      categories_no_target: 0, _t: 0, _m: 0};
+    cells.forEach(function(r){
+      var k = String(r.chapter_code);
+      var h = byCh[k] || (byCh[k] = {chapter_code: r.chapter_code, chapter: r.chapter, eligible: 0, raw: 0,
+        cats_meeting: 0, cats_below: 0, cats_no_target: 0, deficit: 0, target_total: 0,
+        satisfied_units: 0, meets: true, _tm: {}});
+      var t = r.target == null ? null : +r.target, a = +r.eligible || 0;
+      h.raw += +r.raw_rows || 0; scope.total_raw += +r.raw_rows || 0;
+      h._tm[r.question_type + '\u0001' + r.marks] = (h._tm[r.question_type + '\u0001' + r.marks] || 0) + a;
+      if (t === null || t === 0){ h.cats_no_target++; scope.categories_no_target++; }
+      else {
+        h.target_total += t; h.satisfied_units += Math.min(a, t); scope._t += t; scope._m += Math.min(a, t);
+        h.deficit += Math.max(0, t - a); scope.total_deficit += Math.max(0, t - a);
+        if (a >= t){ h.cats_meeting++; scope.categories_meeting++; } else { h.cats_below++; scope.categories_below++; h.meets = false; }
+      }
+    });
+    var chapters = Object.keys(byCh).map(function(k){
+      var h = byCh[k];
+      h.eligible = Object.keys(h._tm).reduce(function(n, x){ return n + h._tm[x]; }, 0);
+      scope.total_eligible += h.eligible;
+      if (h.meets) scope.chapters_meeting++; else scope.chapters_below++;
+      var per = {};
+      Object.keys(h._tm).forEach(function(x){
+        var p = x.split('\u0001');
+        per[p[0]] || (per[p[0]] = {});
+        per[p[0]][+p[1]] = (per[p[0]][+p[1]] || 0) + h._tm[x];
+      });
+      delete h._tm;
+      h.readiness_pct = h.target_total ? Math.min(100, h.satisfied_units / h.target_total * 100) : null;
+      h.supports_20 = {};
+      Object.keys(per).forEach(function(ty){ h.supports_20[ty] = BPLIB.canMakeMarks(per[ty], BPLIB.INVENTORY_POLICY.reference_marks); });
+      return h;
+    }).sort(function(a, b){ return (b.deficit || 0) - (a.deficit || 0); });
+    scope.inventory_readiness_pct = scope._t ? scope._m / scope._t * 100 : null;
+    delete scope._t; delete scope._m;
+    scope.truncated = cells.length >= 8000;
+    return {scope: scope, chapters: chapters, cells: cells};
+  }
+  function invPlanHtml(){
+    var inv = invSummary();
+    if (!inv) return '<h2>Minimum-inventory deficits</h2><div class="panel"><p class="hint">No marks×difficulty data in scope — the floor policy needs the <code>inventory</code> view (API). Pasted rows without marks cannot be evaluated; nothing is guessed.</p></div>';
+    var cells = invFloorCells();
+    var below = cells.filter(function(c){ return c.status === 'below'; });
+    var sup = {};
+    (inv.chapters || []).forEach(function(h){ sup[String(h.chapter_code)] = h.supports_20 || {}; });
+    below.forEach(function(c){
+      c._blocks = (sup[String(c.chapter_code)] || {})[c.question_type] === false;
+      c._prio = (c._blocks ? 3 : 1) * (+c.deficit || 0);
+    });
+    below.sort(function(a, b){ return b._prio - a._prio; });
+    if (!below.length) return '<h2>Minimum-inventory deficits</h2><div class="panel"><p><span class="chip ok">All target cells meet the 20-mark policy floor</span> — nothing required below floor in this scope. Keep expanding by usage, not need.</p></div>';
+    var ref = BPLIB.INVENTORY_POLICY.reference_marks;
+    var rows = below.slice(0, 40).map(function(c, i){
+      return '<tr><td class="num">' + (i + 1) + '</td><td>' + esc(c.chapter || c.chapter_code) + '</td><td>' + esc(c.question_type) +
+        '</td><td class="num">' + esc(c.marks) + '</td><td>' + esc(c.difficulty === 'hard' ? 'Difficult' : c.difficulty) +
+        '</td><td class="num">' + c.eligible + ' / ' + c.target + '</td><td class="num"><b>' + c.deficit + '</b></td>' +
+        '<td>' + (c._blocks ? '<span class="chip warn">blocks ' + ref + '-mark paper</span>' : '<span class="chip">rotation depth only</span>') + '</td></tr>';
+    }).join('');
+    return '<h2>Minimum-inventory deficits — priority list</h2><div class="tbl-wrap"><table class="grid"><thead><tr><th class="num">#</th><th>Chapter</th><th>Question type</th><th class="num">Marks</th><th>Difficulty</th><th class="num">Eligible / Target</th><th class="num">Deficit</th><th>Why this rank</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+      '<p class="hint">priority = deficit × 3 when the question type cannot yet assemble a ' + ref + '-mark paper from distinct eligible units (blocks the common teacher request), × 1 when only rotation depth is short. Unmet cognitive variety and metadata gaps are surfaced on the Cognitive tab — analysis only. Feeds the existing content-creation workflow; the dashboard never generates questions itself.' +
+      (below.length > 40 ? ' Showing top 40 of ' + below.length + '.' : '') + (inv.scope && inv.scope.truncated ? ' ⚠ the inventory view was row-limited — narrow with &class/&subject for complete math.' : '') + '</p></div>';
+  }
+  function invFlatFromLocal(catCells){
+    var out = [];
+    (catCells || []).forEach(function(c){
+      var first = true;
+      ['easy', 'medium', 'hard'].forEach(function(dk){
+        var sub = c[dk];
+        if (!sub) return;
+        out.push({chapter_code: c.chapter_code, chapter: c.chapter, question_type: c.question_type, marks: c.marks,
+          difficulty: dk, target: sub.target == null ? null : +sub.target,
+          eligible: sub.actual != null ? +sub.actual : (+sub.eligible || 0),
+          raw_rows: first ? (+c.raw_total || 0) : 0, status: sub.status});
+        first = false;
+      });
+    });
+    return out;
+  }
+  function invLocalCells(rows){
+    return BPLIB.inventoryFromRows((rows || []).map(function(r){
+      return {board: r.board, class: r.class, subject_code: r.subject_code,
+              chapter_code: r.chapter_code || r.chapter_name || r.chapter,
+              chapter: r.chapter_name || r.chapter, question_type: r.question_type, marks: r.marks,
+              difficulty: r.difficulty, eligible: (r.usable != null ? r.usable : r.count), raw: r.count};
+    }), {}).cells || [];
+  }
+  function boardExtra(b){
+    var h = '';
+    var cells = ((state.server && state.server.inventory) || []).filter(function(c){ return String(c.board == null ? '—' : c.board) === String(b); });
+    if (!cells.length){
+      var local = (state.rowsAll || []).filter(function(r){ return boardOf(r) === String(b); });
+      if (local.length && local.some(function(r){ return r.marks != null && r.marks !== '' && r.difficulty; }))
+        cells = invFlatFromLocal(invLocalCells(local));
+    }
+    if (cells.length){
+      var sc = invRollupFromCells(cells).scope;
+      h += '<div class="kv"><span>Min-inventory</span><b>' + sc.chapters_meeting + '/' + (sc.chapters_meeting + sc.chapters_below) +
+           ' ch. · deficit ' + sc.total_deficit +
+           (sc.inventory_readiness_pct != null ? ' · ' + Math.round(sc.inventory_readiness_pct) + '% ready' : '') + '</b></div>';
+    }
+    var cog = ((state.server && state.server.cognitive) || []).filter(function(r){ return String(r.board == null ? '—' : r.board) === String(b); });
+    if (cog.length){
+      var pv = BPLIB.cognitivePivotFromRows(cog.map(function(r){
+        return {question_type: r.question_type, cognitive: r.cognitive, difficulty: r.difficulty_norm || r.difficulty, marks: r.marks, eligible: r.eligible};
+      }), {});
+      var byLv = {};
+      pv.rows.forEach(function(t){ Object.keys(t.levels).forEach(function(k){ byLv[k] = (byLv[k] || 0) + t.levels[k]; }); });
+      var top = Object.keys(byLv).sort(function(a, x){ return byLv[x] - byLv[a]; })[0];
+      h += '<div class="kv"><span>Cognitive</span><b>' + (pv.eligible_total ? esc(top === '__unclassified' ? 'unclassified' : top) +
+           ' ' + Math.round(100 * byLv[top] / pv.eligible_total) + '% of ' + pv.eligible_total : '—') + '</b></div>';
+    }
+    return h;
+  }
+  function boardsInData(){
+    var set = [];
+    var add = function(r){ var b = boardOf(r); if (set.indexOf(b) === -1) set.push(b); };
+    (state.rowsAll || []).forEach(add);
+    ['inventory', 'cognitive', 'bankstats', 'readiness', 'slotbank'].forEach(function(k){
+      ((state.server && state.server[k]) || []).forEach(add);
+    });
+    return set.sort(function(a, b){ return a === '—' ? 1 : b === '—' ? -1 : a.localeCompare(b); });
+  }
+  function renderBoardBar(){
+    var el = $('boardbar'); if (!el) return;
+    var bs = boardsInData();
+    var cnt = function(b){ return (state.rowsAll || []).filter(function(r){ return boardOf(r) === b; })
+      .reduce(function(n, r){ return n + (toNum(r.count) || 0); }, 0); };
+    var h = '<span class="lbl">Board</span>';
+    if (!bs.length){ el.innerHTML = h + '<span class="hint">load data (API or paste) — every board in it will appear here, and all counts stay scoped to the selected board</span>'; return; }
+    if (bs.length > 1) h += '<button class="bchip' + (state.board == null ? ' sel' : '') + '" data-board="">All boards</button>';
+    h += bs.map(function(b){
+      return '<button class="bchip' + (String(state.board) === b ? ' sel' : '') + '" data-board="' + esc(b) +
+             '" aria-pressed="' + (String(state.board) === b ? 'true' : 'false') + '">' + esc(b) +
+             (cnt(b) ? ' <span class="cnt">' + cnt(b) + ' q</span>' : '') + '</button>';
+    }).join('');
+    h += state.board != null
+      ? '<span class="hint">everything below is scoped to <b>' + esc(String(state.board)) + '</b></span>'
+      : (bs.length > 1 ? '<span class="hint">pick a board — coverage, floors, deficits and cognitive stats all re-scope</span>' : '');
+    el.innerHTML = h;
+    el.querySelectorAll('[data-board]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var v = btn.getAttribute('data-board');
+        setBoard(v === '' ? null : v);
+      });
+    });
+  }
+  function setBoard(b){
+    state.board = b;
+    state.rows = scopeRows(state.rowsAll);
+    state.raw = scopeRows(state.rawAll);
+    state.nav = {board: b, class: null, stream: null, subject: null, chapter: null};
+    state.selectedCell = null; state.cog = null; state.cogCh = null; state.chCogOpen = false;
+    state.bpSel = null; state.bpOpenSlot = null; state.lastHeat = null; state.lastPlan = null;
+    renderAll();
+  }
+  function boardOfServer(k){
+    var arr = (state.server && state.server[k]) || [];
+    if (state.board == null) return arr;
+    return arr.filter(function(r){ return r.board == null || String(r.board) === String(state.board); });
+  }
+  function invTiles(){
+    var inv = invSummary();
+    if (!inv || !inv.scope) return [['Inventory readiness', '—', '']];
+    var sc = inv.scope;
+    return [
+      ['Chapters @ floor', sc.chapters_meeting + ' / ' + (sc.chapters_meeting + sc.chapters_below),
+       sc.chapters_below ? 'warn' : 'ok'],
+      ['Inventory deficit', sc.total_deficit, sc.total_deficit ? 'bad' : 'ok'],
+      ['Inventory readiness', sc.inventory_readiness_pct == null ? '—' : Math.round(sc.inventory_readiness_pct) + '%', ''],
+      ['Type-cats meeting', sc.categories_meeting + ' / ' + (sc.categories_meeting + sc.categories_below), '']
+    ];
   }
 
   /* ---------------- Matrix tab ---------------- */
@@ -1306,17 +1836,10 @@ function makeMasterFixture(){
   }
 
   /* ---------------- readiness (paper-generation) + class coverage ---------------- */
-  var RD_SLOTS = [
-    {t:'MCQ', m:1, p:14, f:3, d:10},
-    {t:'Assertion-Reason', m:1, p:4, f:3, d:6},
-    {t:'Very Short Answer', m:2, p:5, f:3, d:5},
-    {t:'Short Answer', m:2, p:5, f:3, d:5},
-    {t:'Short Answer', m:3, p:6, f:3, d:5},
-    {t:'Case-Based', m:4, p:4, f:3, d:4},
-    {t:'Long Answer', m:5, p:4, f:3, d:4}
-  ];
-  var RD_GOALS = {healthy:10, strong:25, viable:1, de:30, dm:40, dh:30, fresh:50};
-  var RD_W = {cur:0.30, marks:0.20, types:0.20, diff:0.15, rot:0.15};
+  var RD_SLOTS = BPLIB.PAPER_POLICY.slots.map(function(r){ return {t:r[0], m:r[1], p:r[2], f:r[3], d:r[4]}; });
+  var RD_GOALS = (function(g){ return {healthy:g.healthy, strong:g.strong, viable:g.viable,
+    de:g.diffEasy, dm:g.diffMedium, dh:g.diffHard, fresh:g.freshPct}; })(BPLIB.PAPER_POLICY.goals);
+  var RD_W = (function(w){ return {cur:w.curriculum, marks:w.marks, types:w.types, diff:w.difficulty, rot:w.rotation}; })(BPLIB.PAPER_POLICY.weights);
   function rdNorm(d){ return String(d || '').trim().toLowerCase(); }
   function rdUsable(r){ return r.usable != null ? toNum(r.usable) : (r.with_answer != null ? toNum(r.with_answer) : toNum(r.count)); }
   function rdFresh(r){ return r.unused_usable != null ? toNum(r.unused_usable) : (r.unused != null ? Math.min(toNum(r.unused), rdUsable(r)) : null); }
@@ -1425,12 +1948,12 @@ function makeMasterFixture(){
   }
 
   function readinessRows(){
-    if (state.server.readiness && state.server.readiness.length) return state.server.readiness.slice();
+    if (state.server.readiness && state.server.readiness.length) return boardOfServer('readiness').slice();
     if (state.raw && state.raw.length) return computeReadinessFromRaw(state.raw);
     return computeReadinessFromRaw(state.rows);
   }
   function actionsRows(){
-    if (state.server.actions && state.server.actions.length) return state.server.actions;
+    if (state.server.actions && state.server.actions.length) return boardOfServer('actions');
     var seen = {}, map = {};
     var src = (state.raw && state.raw.length) ? state.raw : state.rows;
     src.forEach(function(r){
@@ -1454,6 +1977,80 @@ function makeMasterFixture(){
     return out.slice(0, 20);
   }
 
+  var PIE_COLORS = ['#1b3a63', '#2e6f9e', '#4f9ec7', '#16a34a', '#e0a63c', '#c0504d', '#8064a2', '#5f9ea0', '#d17b47'];
+  function svgPie(parts, size){
+    size = size || 128;
+    var total = parts.reduce(function(a, p){ return a + p.value; }, 0);
+    if (!total) return '';
+    var r = size / 2, ir = r * 0.56, a0 = -Math.PI / 2, g = '';
+    parts.forEach(function(p, i){
+      if (!p.value) return;
+      var col = p.color || PIE_COLORS[i % PIE_COLORS.length];
+      var frac = p.value / total, a1 = a0 + frac * 2 * Math.PI;
+      if (frac > 0.9995){
+        g += '<circle cx="' + r + '" cy="' + r + '" r="' + ((r + ir) / 2).toFixed(1) + '" fill="none" stroke="' + col +
+             '" stroke-width="' + (r - ir - 1).toFixed(1) + '"><title>' + esc(p.label) + ' — ' + p.value + ' (100%)</title></circle>';
+      } else {
+        var la = frac > 0.5 ? 1 : 0;
+        var x0 = (r + r * Math.cos(a0)).toFixed(2), y0 = (r + r * Math.sin(a0)).toFixed(2);
+        var x1 = (r + r * Math.cos(a1)).toFixed(2), y1 = (r + r * Math.sin(a1)).toFixed(2);
+        var xi1 = (r + ir * Math.cos(a1)).toFixed(2), yi1 = (r + ir * Math.sin(a1)).toFixed(2);
+        var xi0 = (r + ir * Math.cos(a0)).toFixed(2), yi0 = (r + ir * Math.sin(a0)).toFixed(2);
+        g += '<path fill="' + col + '" d="M' + x0 + ' ' + y0 + ' A' + r + ' ' + r + ' 0 ' + la + ' 1 ' + x1 + ' ' + y1 +
+             ' L' + xi1 + ' ' + yi1 + ' A' + ir + ' ' + ir + ' 0 ' + la + ' 0 ' + xi0 + ' ' + yi0 + ' Z"><title>' +
+             esc(p.label) + ' — ' + p.value + ' (' + Math.round(frac * 100) + '%)</title></path>';
+      }
+      a0 = a1;
+    });
+    return '<svg class="pie" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size +
+      '" role="img" aria-label="distribution pie chart">' + g +
+      '<text x="' + r + '" y="' + (r - 3) + '" text-anchor="middle" font-size="18" font-weight="700" fill="#1b3a63">' + total + '</text>' +
+      '<text x="' + r + '" y="' + (r + 13) + '" text-anchor="middle" font-size="9" fill="#667">units</text></svg>';
+  }
+  function pieLegend(parts){
+    var total = parts.reduce(function(a, p){ return a + p.value; }, 0) || 1;
+    return '<table class="pieleg"><tbody>' + parts.filter(function(p){ return p.value; }).map(function(p){
+      var col = p.color || '#888';
+      return '<tr><td><span class="sw" style="background:' + col + '"></span>' + esc(p.label) + '</td>' +
+             '<td class="num">' + p.value + '</td><td class="num">' + Math.round(100 * p.value / total) + '%</td></tr>';
+    }).join('') + '</tbody></table>';
+  }
+  function cogChapterCounts(ck){
+    var src = null;
+    var srv = boardOfServer('cognitive').filter(function(r){
+      return scopeMatchNav(r) && String(r.chapter_code || r.chapter || '?') === ck;
+    });
+    if (srv.length) src = srv;
+    else {
+      var loc = (state.rows || []).filter(function(r){
+        return scopeMatchNav(r) && String(r.chapter_code || r.chapter_name || '?') === ck &&
+               (r.cognitive != null || r.cognitive_level != null);
+      });
+      if (!loc.length) return null;
+      src = loc;
+    }
+    var agg = {};
+    src.forEach(function(r){
+      var raw = r.cognitive != null ? r.cognitive : r.cognitive_level;
+      raw = raw == null ? '' : String(raw).trim();
+      var cc = BPLIB.canonicalCognitive(raw);
+      var lab = cc.status === 'unclassified' ? 'Unclassified'
+              : cc.status === 'noncanonical' ? (cc.display + ' (non-canonical)')
+              : cc.display;
+      var v = r.eligible != null ? toNum(r.eligible) : (r.usable != null ? toNum(r.usable) : toNum(r.count));
+      agg[lab] = (agg[lab] || 0) + v;
+    });
+    var ord = BPLIB.COG_ORDER;
+    var keys = Object.keys(agg).sort(function(a, b){
+      var ia = ord.indexOf(a), ib = ord.indexOf(b);
+      if (ia < 0 && ib < 0) return a.localeCompare(b);
+      if (ia < 0) return 1;
+      if (ib < 0) return -1;
+      return ia - ib;
+    });
+    var parts = keys.map(function(k, i){ return {label: k, value: agg[k], color: PIE_COLORS[i % PIE_COLORS.length]}; });
+    return {parts: parts, total: parts.reduce(function(a, p){ return a + p.value; }, 0)};
+  }
   function tierChip(t){
     var cls = t === 'strong' || t === 'healthy' ? 'ok' : t === 'viable' ? 'warn' : 'bad';
     var ic  = t === 'strong' || t === 'healthy' ? '\ud83d\udfe2' : t === 'viable' ? '\ud83d\udfe1' : '\ud83d\udd34';
@@ -1506,7 +2103,7 @@ function makeMasterFixture(){
     var n = +v, col = n < 40 ? '#ef4444' : n < 70 ? '#f59e0b' : '#16a34a';
     return '<div class="dimb"><span class="dl">' + esc(label) + '</span><span class="db"><i style="width:' + Math.min(100, n) + '%;background:' + col + '"></i></span><span class="dv">' + n.toFixed(1) + '</span></div>';
   }
-  function scopeCard(r, nav, title, subLabel, subVal){
+  function scopeCard(r, nav, title, subLabel, subVal, extra){
     var cov = r ? (+r.coverage_pct || 0) : 0;
     var h = '<div class="scard" data-navq="' + pushNav(nav) + '"><div class="t">' + title + '</div>';
     if (r){
@@ -1521,7 +2118,7 @@ function makeMasterFixture(){
     } else {
       h += '<div class="kv"><span>' + esc(subLabel) + '</span><b>' + subVal + '</b></div><div class="kv"><span>data</span><b>—</b></div>';
     }
-    return h + '</div>';
+    return h + (extra || '') + '</div>';
   }
   function mergeRows(list, stream){
     if (!list.length) return null;
@@ -1551,23 +2148,25 @@ function makeMasterFixture(){
     var boards = uniqArr(rd.filter(function(r){ return r.lvl === 'board'; }).map(function(r){ return r.board || '—'; }));
     if (!boards.length) boards = ['—'];
     var h = '';
-    if (boards.length > 1 && !n.board){
-      h += '<h2>Coverage explorer</h2>' +
-        '<p class="rdnote">Tap a board → pick a class → pick a stream or subject. One number matters here: <b>how many complete papers this bank can generate</b>.</p><div class="cards">' +
+    if (!n.board){
+      h += '<h2>' + (boards.length > 1 ? 'Coverage explorer' : 'Coverage explorer — ' + esc(String(boards[0])) + ' board') + '</h2>' +
+        '<p class="rdnote">Board is the first level: tap a board → pick a class → pick a stream or subject. One number matters here: <b>how many complete papers this bank can generate</b>. Every tile, floor and cognitive stat below is scoped to the board you pick.</p><div class="cards">' +
         rd.filter(function(r){ return r.lvl === 'board'; }).map(function(r){
           return scopeCard(r, {board: r.board || '—'}, esc(r.board || '—') + ' <span class="hint">board →</span>', 'Classes',
-                 rd.filter(function(x){ return x.lvl === 'class' && bkey(x) === bkey(r); }).length);
+                 rd.filter(function(x){ return x.lvl === 'class' && bkey(x) === bkey(r); }).length,
+                 boardExtra(r.board || '—'));
         }).join('') + '</div>';
       el.innerHTML = h; wireNav(el); return;
     }
     var board = n.board || boards[0];
     n.board = board;
     var br = rd.filter(function(r){ return board === '—' || bkey(r) === String(board); });
-    var segs = [{l: esc(board) + (boards.length > 1 ? ' <i>board</i>' : ' · all classes'), o: {board: board}}];
+    var segs = [{l: esc(board) + ' <i>board</i>', o: {board: board}}];
     if (n.class) segs.push({l: 'Class ' + esc(String(n.class)), o: {board: board, class: n.class}});
     if (n.stream) segs.push({l: esc(String(n.stream)), o: {board: board, class: n.class, stream: n.stream}});
+    if (n.chapter) segs.push({l: esc(String(n.chapter)), o: {board: board, class: n.class, stream: n.stream, subject: n.subject, all: n.all}});
     h += '<div class="crumbs">' + segs.map(function(s, i){
-      var t = i === segs.length - 1 && (n.subject || n.all || (n.stream && !n.subject && state.nav.stream)) && i > 1
+      var t = i === segs.length - 1 && (n.chapter || n.subject || n.all || (n.stream && !n.subject && state.nav.stream)) && i > 1
         ? '<b>' + s.l + '</b>'
         : '<a data-navq="' + pushNav(s.o) + '">' + s.l + '</a>';
       return (i ? ' <i>›</i> ' : '') + t;
@@ -1610,11 +2209,175 @@ function makeMasterFixture(){
         }).join('') + '</div>';
       });
       if (!subs.length) h += '<p class="hint">No subject rows for this class in the loaded data.</p>';
+    } else if (n.chapter){
+      h += chapterPageHtml(board, br);
     } else {
       h += detailHtml(board, br);
     }
     el.innerHTML = h;
     wireNav(el);
+  }
+  function chapterCards(){
+    var n = state.nav;
+    var rows = srcRows().filter(scopeMatchNav);
+    if (!rows.length) return '';
+    var chs = {};
+    rows.forEach(function(r){
+      var ck = String(r.chapter_code || r.chapter_name || '?');
+      var o = chs[ck] || (chs[ck] = {code: ck, name: r.chapter_name || r.chapter || ck, total: 0, usable: 0});
+      o.total += toNum(r.count); o.usable += rdUsable(r);
+    });
+    var inv = invSummary();
+    var byCh = {};
+    ((inv && inv.chapters) || []).forEach(function(hh){ byCh[String(hh.chapter_code)] = hh; });
+    var maxU = Math.max.apply(null, [1].concat(Object.keys(chs).map(function(k){ return chs[k].usable; })));
+    var cards = Object.keys(chs).sort(function(a, b){
+      var da = byCh[a] ? byCh[a].deficit : 0, db = byCh[b] ? byCh[b].deficit : 0;
+      return db - da || a.localeCompare(b, undefined, {numeric: true});
+    }).map(function(ck){
+      var o = chs[ck], hh = byCh[ck];
+      return '<div class="chapcard" data-navq="' + pushNav({board: n.board, class: n.class, stream: n.stream,
+               subject: n.subject, all: n.all, chapter: ck}) + '">' +
+        '<div class="ttl">' + esc(o.code) + ' · ' + esc(o.name) + '</div>' +
+        '<div class="cn"><span>' + o.total + ' questions</span><span>' + o.usable + ' usable</span>' +
+        (hh ? '<span>' + (hh.readiness_pct == null ? '—' : Math.round(hh.readiness_pct) + '% ready') + '</span>' +
+              '<span>deficit ' + hh.deficit + '</span>' +
+              (hh.meets ? '<span class="chip ok">meets floor</span>' : '<span class="chip bad">below floor</span>') : '') +
+        '<span class="hint">policy →</span></div>' +
+        '<div class="cbar"><i style="width:' + Math.round(100 * o.usable / maxU) + '%"></i></div></div>';
+    }).join('');
+    var h = '<h3>Chapters — tap one for its minimum-inventory policy and cognitive counts</h3>' +
+            '<div class="cards">' + cards + '</div>';
+    var mix = {easy: 0, medium: 0, hard: 0}, any = false;
+    rows.forEach(function(r){
+      var d = rdNorm(r.difficulty_norm || r.difficulty);
+      if (d === 'difficult') d = 'hard';
+      if (d === 'easy' || d === 'medium' || d === 'hard'){ any = true; mix[d] += rdUsable(r); }
+    });
+    var tot = mix.easy + mix.medium + mix.hard;
+    if (any && tot > 0){
+      var pts = [{label: 'Easy', value: mix.easy}, {label: 'Medium', value: mix.medium}, {label: 'Difficult', value: mix.hard}]
+        .map(function(p, i){ p.color = PIE_COLORS[i]; return p; });
+      h += '<div class="panel"><h3 style="margin-top:0">Usable questions by difficulty — this scope</h3>' +
+           '<div class="piewrap">' + svgPie(pts) + pieLegend(pts) + '</div>' +
+           '<p class="hint" style="margin-bottom:0">Inventory mix only — the paper planner uses its own difficulty distribution; these counts are not a generation filter.</p></div>';
+    }
+    return h;
+  }
+  function chapterPageHtml(board, br){
+    var n = state.nav, ck = String(n.chapter);
+    var rows = srcRows().filter(function(r){ return scopeMatchNav(r) && String(r.chapter_code || r.chapter_name || '?') === ck; });
+    var name = (rows[0] && (rows[0].chapter_name || rows[0].chapter)) || ck;
+    var total = 0, usable = 0;
+    rows.forEach(function(r){ total += toNum(r.count); usable += rdUsable(r); });
+    var cells;
+    var srvInv = boardOfServer('inventory');
+    if (srvInv.length){
+      cells = srvInv.filter(function(c){ return scopeMatchNav(c) && String(c.chapter_code || c.chapter || '?') === ck; });
+    } else {
+      cells = invLocalCells((state.rows || []).filter(scopeMatchNav))
+        .filter(function(c){ return String(c.chapter_code || c.chapter) === ck; });
+    }
+    var cats = {};
+    cells.forEach(function(c){
+      var k = (c.question_type || '—') + '  ' + toNum(c.marks);
+      var cat = cats[k] || (cats[k] = {type: c.question_type || '—', marks: toNum(c.marks), d: {}, tSum: 0, aSum: 0, def: 0, sat: 0, anyT: false});
+      if (c.easy || c.medium || c.hard){
+        ['easy', 'medium', 'hard'].forEach(function(dk){
+          var sub = c[dk];
+          if (!sub) return;
+          cat.d[dk] = {t: sub.target == null ? null : +sub.target,
+                        a: (sub.actual != null ? +sub.actual : (+sub.eligible || 0))};
+        });
+      } else {
+        var dk = rdNorm(c.difficulty);
+        if (dk === 'difficult') dk = 'hard';
+        cat.d[dk || '—'] = {t: c.target == null ? null : +c.target, a: +c.eligible || 0};
+      }
+    });
+    Object.keys(cats).sort().forEach(function(k){
+      var cat = cats[k];
+      ['easy', 'medium', 'hard'].forEach(function(dk){
+        var st = cat.d[dk];
+        if (!st) return;
+        cat.aSum += st.a;
+        if (st.t > 0){ cat.tSum += st.t; cat.sat += Math.min(st.a, st.t); cat.def += Math.max(0, st.t - st.a); cat.anyT = true; }
+      });
+      Object.keys(cat.d).forEach(function(dk){
+        if (dk !== 'easy' && dk !== 'medium' && dk !== 'hard') cat.aSum += cat.d[dk].a;
+      });
+    });
+    var inv = invSummary();
+    var hh = null;
+    ((inv && inv.chapters) || []).forEach(function(x){ if (String(x.chapter_code) === ck) hh = x; });
+    var tSum = 0, def = 0, sat = 0, aTot = 0;
+    Object.keys(cats).forEach(function(k){ var c = cats[k]; tSum += c.tSum; def += c.def; sat += c.sat; aTot += c.aSum; });
+    var ref = BPLIB.INVENTORY_POLICY.reference_marks;
+    var rdy = hh && hh.readiness_pct != null ? +hh.readiness_pct : (tSum ? Math.min(100, 100 * sat / tSum) : null);
+
+    var h = '<h2>' + esc(name) + ' <span class="hint">' + esc(ck) + '</span> ' +
+      (hh ? (hh.meets ? '<span class="chip ok">meets floor</span>' : '<span class="chip bad">below floor</span>') : '') +
+      ' <button class="btn sec" data-chclose style="float:right">← Chapters</button></h2>';
+    h += '<div class="strip">' +
+      statBox('Questions', total) + statBox('Usable', usable) +
+      statBox('Target units', tSum || '—') + statBox('Eligible units', hh ? hh.eligible : aTot) +
+      statBox('Deficit', hh ? hh.deficit : def) + statBox('Readiness', rdy == null ? '—' : Math.round(rdy) + '%') + '</div>';
+
+    var DIFFS = [['easy', 'Easy'], ['medium', 'Medium'], ['hard', 'Difficult']];
+    var body = Object.keys(cats).sort().map(function(k){
+      var cat = cats[k];
+      var head = '<tr class="catrow"><td colspan="5"><b>' + esc(cat.type) + ' × ' + cat.marks + ' ' +
+        (cat.marks === 1 ? 'mark' : 'marks') + '</b>' +
+        (cat.anyT ? ' — ' + cat.sat + '/' + cat.tSum + ' satisfied · deficit ' + cat.def + ' · ' +
+          (cat.def === 0 ? '<span class="chip ok">meets minimum</span>' : '<span class="chip bad">below minimum</span>')
+         : ' — <span class="chip">no target (not a policy slot)</span>') + '</td></tr>';
+      var lines = DIFFS.map(function(d){
+        var st = cat.d[d[0]];
+        if (!st) return '';
+        var dt = st.t > 0 ? Math.max(0, st.t - st.a) : null;
+        return '<tr><td>' + d[1] + '</td><td class="num">' + st.a + '</td>' +
+               '<td class="num">' + (st.t > 0 ? st.t : '—') + '</td>' +
+               '<td class="num">' + (dt == null ? '—' : dt) + '</td>' +
+               '<td>' + (st.t > 0 ? (st.a >= st.t ? 'meets' : 'below') : 'no target') + '</td></tr>';
+      }).join('');
+      return head + lines;
+    }).join('');
+    h += '<div class="panel"><h3 style="margin-top:0">Minimum-inventory policy — actual vs target per difficulty</h3>' +
+      (Object.keys(cats).length
+        ? '<div class="tbl-wrap"><table class="grid"><thead><tr><th>Difficulty</th><th class="num">Actual (eligible)</th>' +
+          '<th class="num">Target</th><th class="num">Deficit</th><th>Status</th></tr></thead><tbody>' + body + '</tbody></table></div>'
+        : '<p class="hint">No policy cells for this chapter in the loaded data — targets apply once the <code>inventory</code> view ' +
+          '(or rows with marks × difficulty) is loaded. Nothing is guessed.</p>') +
+      '<p class="hint" style="margin-bottom:0">Initial minimum-inventory policy on a ' + ref + '-mark basis: per chapter × question-type category ' +
+      '× marks × difficulty, each type counted independently (MCQ never satisfies assertion–reason and vice versa). ' +
+      'Floors, not caps — configurable in one place (INVENTORY_POLICY + per-scope overrides), applied only to combinations the database supports. ' +
+      'Difficulty rows count inventory, not paper generation. Stored values are Easy/Medium/Hard; “Difficult” is the product label.</p></div>';
+
+    if (hh && hh.supports_20 && Object.keys(hh.supports_20).length){
+      var marksRep = rows.length ? rows.reduce(function(a, r){ return a + toNum(r.count) * (toNum(r.marks) || 0); }, 0) : null;
+      h += '<div class="panel"><h3 style="margin-top:0">' + ref + '-mark feasibility — separate from the floor</h3>' +
+        Object.keys(hh.supports_20).sort().map(function(ty){
+          return '<div class="kv"><span>' + esc(ty) + '</span><b>' +
+            (hh.supports_20[ty] ? '✓ can assemble ' + ref + ' marks from distinct eligible units'
+                                : '✕ cannot assemble ' + ref + ' marks yet — add spread, not just count') + '</b></div>';
+        }).join('') +
+        '<p class="hint" style="margin-bottom:0">Meeting every inventory target does not prove every test configuration is feasible; ' +
+        'the paper planner calculates valid combinations for the requested total.' +
+        (marksRep != null ? ' Marks represented by available questions: ' + marksRep + '.' : '') + '</p></div>';
+    }
+
+    h += '<div class="panel"><h3 style="margin-top:0">Cognitive levels — this chapter</h3>' +
+      '<button class="btn sec" data-cogbtn>' + (state.chCogOpen ? '▾ Hide' : '▸ Show') + ' question counts by cognitive level</button>';
+    if (state.chCogOpen){
+      var cog = cogChapterCounts(ck);
+      if (cog === null) h += '<p class="hint">No cognitive_level data in the loaded dataset — counts come from question_versions via the API (cognitive view). Nothing is guessed.</p>';
+      else if (!cog.total) h += '<p class="hint">No eligible units in this chapter carry cognitive metadata.</p>';
+      else h += '<div class="piewrap">' + svgPie(cog.parts) + pieLegend(cog.parts) + '</div>' +
+        '<p class="hint">' + cog.total + ' eligible distinct units. Unclassified = metadata gap; “(non-canonical)” labels are stored values outside the canonical five — shown apart, never silently bucketed.</p>';
+    }
+    h += '</div>';
+    h += topicBlock();
+    return h;
   }
   function detailHtml(board, br){
     var n = state.nav;
@@ -1632,18 +2395,17 @@ function makeMasterFixture(){
       statBox('Chapters', row.chapters) + statBox('Coverage', ((+row.coverage_pct || 0).toFixed(1)) + '%') +
       statBox('Capacity', (row.capacity_papers == null ? '—' : row.capacity_papers) + ' 📄') +
       statBox('Readiness', row.readiness == null ? '—' : (+row.readiness).toFixed(1)) + '</div>';
-    h += '<div class="panel"><h3 style="margin-top:0">Readiness dimensions</h3>' +
+    h += chapterCards();
+    h += '<details class="adv"><summary>Advanced — dimensions, capacity table &amp; coverage heat</summary>' +
+      '<div class="panel"><h3 style="margin-top:0">Readiness dimensions</h3>' +
       dimRow('Curriculum cells', row.curriculum_pct) + dimRow('Marks bands', row.marks_score) +
       dimRow('Question types', row.types_score) + dimRow('Difficulty balance', row.difficulty_score) +
       dimRow('Rotation (fresh)', row.rotation_score) +
       '<div style="margin-top:8px;font-size:12px;color:#556">Usable mix ' + mixBar(row) +
       ' <span class="hint">target 30 / 40 / 30' +
       (row.cells_met != null && row.cells_total ? ' · cells ≥ floor: ' + row.cells_met + '/' + row.cells_total : '') +
-      (row.zero_cells != null ? ' · zero cells: ' + row.zero_cells : '') + '</span></div></div>';
-    h += bpPointerHtml();
-    h += capacityBlock();
-    h += heatBlock();
-    if (n.chapter) h += topicBlock();
+      (row.zero_cells != null ? ' · zero cells: ' + row.zero_cells : '') + '</span></div></div>' +
+      bpPointerHtml() + capacityBlock() + heatBlock() + '</details>';
     return h;
   }
   function computeNeeds(rows){
@@ -1678,7 +2440,7 @@ function makeMasterFixture(){
   function capacityRowsFor(){
     var n = state.nav;
     if (state.server.capacity && state.server.capacity.length){
-      return state.server.capacity.filter(function(r){
+      return boardOfServer('capacity').filter(function(r){
         if (n.board && bkey(r) !== String(n.board)) return false;
         if (n.class && ckey(r) !== String(n.class)) return false;
         if (n.stream && rdStream(r.subject_code) !== n.stream) return false;
@@ -1814,6 +2576,9 @@ function makeMasterFixture(){
         gotoTab('bp');
       });
     });
+    el.querySelectorAll('[data-cogbtn]').forEach(function(b){
+      b.addEventListener('click', function(){ state.chCogOpen = !state.chCogOpen; renderExplorer(); });
+    });
     el.querySelectorAll('[data-chclose]').forEach(function(b){
       b.addEventListener('click', function(){
         state.nav = Object.assign({}, state.nav, {chapter: null});
@@ -1831,8 +2596,20 @@ function makeMasterFixture(){
   /* ---------------- Blueprint: stored matrix × eligible bank, slot by slot ---------------- */
   function bpRawRows(){
     var srv = (state.server.blueprints || []).filter(function(b){ return b && (b.blueprint_id || b.matrix); });
+    if (state.board != null && srv.length){
+      srv = srv.filter(function(b){
+        var bb = BPLIB.normalizeBlueprint(b).identity.board;
+        return bb == null || normEq(String(bb), String(state.board));
+      });
+    }
     if (srv.length) return srv;
-    return state.bpDemo ? [BPLIB.makeMasterFixture()] : [];
+    if (state.board != null && !srv.length && (state.server.blueprints || []).length) return [];  // all hidden by board filter
+    var fx = state.bpDemo ? [BPLIB.makeMasterFixture()] : [];
+    if (state.board != null && fx.length){
+      var fb = BPLIB.normalizeBlueprint(fx[0]).identity.board;
+      if (fb != null && !normEq(String(fb), String(state.board))) return [];
+    }
+    return fx;
   }
   // bank rows at slot-matching granularity: server slotbank view wins, else derive
   // from loaded cell rows (one entry per chapter×type×marks×difficulty combo).
@@ -2192,6 +2969,151 @@ function makeMasterFixture(){
   }
 
   /* ---------------- Plan: what to add / what's lacking ---------------- */
+  /* ---------------- Cognitive tab — View D ---------------- */
+  function cogSourceRows(){
+    var r = boardOfServer('cognitive');
+    return (r.length && r[0].question_type != null) ? r : null;
+  }
+  function renderCogn(){
+    var el = $('tab-cog');
+    var rows = cogSourceRows();
+    if (!rows){
+      el.innerHTML = '<h2>Cognitive-level analytics</h2><div class="panel"><p class="hint">' +
+        'No cognitive rows loaded. This analysis reads <code>question_versions.cognitive_level</code> through the ' +
+        '<code>?view=cognitive</code> API (included in <code>?view=all</code>) — eligibility is the same rule as everywhere else ' +
+        '(usable status + non-empty answer, distinct inventory units). Pasted matrices and sample data carry no cognitive dimension, ' +
+        'and we never invent one. If your schema lacks the column, <code>?view=health</code> shows it and the API self-reports.</p></div>';
+      return;
+    }
+    state.cog = state.cog || {marks: '', difficulty: '', chapter: '', topic: '', mode: 'count', open: null};
+    var f = state.cog;
+    var uniq = function(k){ return rows.map(function(r){ return r[k]; })
+      .filter(function(v){ return v != null && v !== ''; })
+      .filter(function(v, i, a){ return a.indexOf(v) === i; }).sort(function(a, b){ return String(a).localeCompare(String(b), undefined, {numeric: true}); }); };
+    var opt = function(k, label, vals){
+      var dis = !vals.length;
+      return '<div><label>' + label + '</label><select data-cogf="' + k + '"' + (dis ? ' disabled title="not in data"' : '') + '>' +
+        '<option value="">all</option>' + vals.map(function(v){ return '<option value="' + esc(v) + '"' +
+        (f[k] === String(v) ? ' selected' : '') + '>' + esc(v) + '</option>'; }).join('') + '</select></div>';
+    };
+    var hasSub = rows.some(function(r){ return r.subtopic != null && r.subtopic !== ''; });
+    var h = '<h2>Cognitive levels — eligible inventory</h2>';
+    h += '<div class="bar">' +
+      opt('marks', 'Marks', uniq('marks').map(String)) +
+      opt('difficulty', 'Difficulty', ['easy', 'medium', 'hard'].map(function(d){ return d; }).filter(function(d){ return rows.some(function(r){ return (r.difficulty_norm || r.difficulty) === d; }); })) +
+      opt('chapter', 'Chapter', uniq('chapter_code')) +
+      opt('topic', 'Topic', uniq('topic')) +
+      '<div><label>Cell values</label><button class="chip" data-cogmode="count">' + (f.mode === 'count' ? '● ' : '') + 'counts</button>' +
+      '<button class="chip" data-cogmode="pct">' + (f.mode === 'pct' ? '● ' : '') + '%</button></div>' +
+      '</div>';
+    var filtered = rows.filter(function(r){
+      if (f.marks && String(+r.marks) !== f.marks) return false;
+      if (f.difficulty && (r.difficulty_norm || r.difficulty) !== f.difficulty) return false;
+      if (f.chapter && String(r.chapter_code || '') !== f.chapter) return false;
+      if (f.topic && String(r.topic || '') !== f.topic) return false;
+      return true;
+    });
+    var pv = BPLIB.cognitivePivotFromRows(filtered.map(function(r){
+      return {question_type: r.question_type, cognitive: r.cognitive,
+              difficulty: r.difficulty_norm || r.difficulty, marks: r.marks, eligible: r.eligible};
+    }), {});
+    var cols = pv.order.concat(['__unclassified']).concat(Object.keys(pv.extra_labels));
+    var colHead = function(k){
+      if (k === '__unclassified') return 'Unclassified';
+      if (pv.order.indexOf(k) === -1) return esc(k) + ' ⚠ non-canonical';
+      return k;
+    };
+    h += '<div class="tbl-wrap"><table class="grid"><caption class="hint">Eligible distinct units per question type × cognitive level. Filters below are analysis-only — never applied to retrieval. 0 = genuinely none at that level; the Unclassified column = rows with no cognitive metadata (fix in the bank, not here).</caption><thead><tr><th scope="col">Question type</th>' +
+      cols.map(function(k){ return '<th scope="col" class="num">' + colHead(k) + '</th>'; }).join('') +
+      '<th scope="col" class="num">Total</th></tr></thead><tbody>';
+    if (!pv.rows.length) h += '<tr><td colspan="' + (cols.length + 2) + '" class="hint">No eligible questions match these filters.</td></tr>';
+    pv.rows.forEach(function(b){
+      var open = state.cog.open === b.question_type;
+      h += '<tr class="slrow" data-cogrow="' + esc(b.question_type) + '" style="cursor:pointer"><th scope="row">' + esc(b.question_type) +
+        (open ? ' ▾' : ' ▸') + '</th>' +
+        cols.map(function(k){
+          var v = b.levels[k] || 0;
+          var t = b.total ? Math.round(v / b.total * 100) : null;
+          var cell = f.mode === 'pct' ? (v ? t + '%' : '0') : String(v);
+          var cls = 'num' + (k === '__unclassified' && v ? ' warn' : '');
+          return '<td class="' + cls + '">' + cell + (f.mode === 'count' && v ? ' <small class="hint">' + t + '%</small>' : '') + '</td>';
+        }).join('') +
+        '<td class="num"><b>' + b.total + '</b></td></tr>';
+      if (open){
+        var drows = ['easy', 'medium', 'hard'].map(function(d){
+          var c = cols.map(function(k){ return (b.diff[k] && b.diff[k][d]) || 0; });
+          return '<tr><th scope="row">' + (d === 'hard' ? 'Difficult' : d[0].toUpperCase() + d.slice(1)) + '</th>' +
+            c.map(function(v){ return '<td class="num">' + v + '</td>'; }).join('') +
+            '<td class="num">' + c.reduce(function(x, y){ return x + y; }, 0) + '</td></tr>';
+        }).join('');
+        var mks = Object.keys(b.marks_by || {});
+        h += '<tr><td colspan="' + (cols.length + 2) + '"><div class="panel"><h3>By difficulty</h3>' +
+          '<table class="grid"><thead><tr><th>Difficulty</th>' + cols.map(function(k){ return '<th class="num">' + colHead(k) + '</th>'; }).join('') +
+          '<th class="num">Σ</th></tr></thead><tbody>' + drows + '</tbody></table>' +
+          '<h3>By marks</h3><table class="grid"><thead><tr><th>Marks</th>' + cols.map(function(k){ return '<th class="num">' + colHead(k) + '</th>'; }).join('') +
+          '<th class="num">Σ</th></tr></thead><tbody>' + (function(){
+            var mk = {};
+            Object.keys(b.marks).forEach(function(kk){ Object.keys(b.marks[kk]).forEach(function(m){
+              mk[m] || (mk[m] = {});
+              mk[m][kk] = (mk[m][kk] || 0) + b.marks[kk][m];
+            }); });
+            return Object.keys(mk).sort(function(a, x){ return a - x; }).map(function(m){
+              var cs = cols.map(function(k){ return (mk[m][k] || 0); });
+              return '<tr><th scope="row">' + m + '</th>' + cs.map(function(v){ return '<td class="num">' + v + '</td>'; }).join('') +
+                     '<td class="num">' + cs.reduce(function(x, y){ return x + y; }, 0) + '</td></tr>';
+            }).join('') || '<tr><td colspan="' + (cols.length + 2) + '" class="hint">marks not in data</td></tr>';
+          })() + '</tbody></table></div></td></tr>';
+      }
+    });
+    h += '</tbody><tfoot><tr><th scope="row">All types</th>' + cols.map(function(k){
+      var v = pv.rows.reduce(function(n, b){ return n + (b.levels[k] || 0); }, 0);
+      return '<td class="num">' + v + (pv.eligible_total ? ' <small class="hint">' + Math.round(100 * v / pv.eligible_total) + '%</small>' : '') + '</td>';
+    }).join('') + '<td class="num"><b>' + pv.eligible_total + '</b></td></tr></tfoot></table></div>';
+    var chips = [];
+    chips.push('<span class="chip">' + pv.eligible_total + ' eligible units</span>');
+    if (pv.unclassified_total) chips.push('<span class="chip warn">' + pv.unclassified_total + ' unclassified (' + (pv.eligible_total ? Math.round(100 * pv.unclassified_total / pv.eligible_total) : 0) + '%) — metadata gap, count each type</span>');
+    Object.keys(pv.extra_labels).forEach(function(l){ chips.push('<span class="chip warn">"' + esc(l) + '" (' + pv.extra_labels[l] + ') is not a canonical level — normalize or extend the mapping, never re-bucketed</span>'); });
+    h += '<div>' + chips.join(' ') + '</div>';
+    h += '<p class="hint">Inventory counts are <b>facts with no cognitive target</b>: equal distributions are not required and none are invented. Blueprint cognitive specs, when present, are shown below as a separate system.</p>';
+    // blueprint-derived cognitive demand — separate, from stored matrix only
+    var bps = (state.server && state.server.blueprints || []).filter(function(b){ return b && (b.matrix || b.blueprint_id); });
+    if (bps.length){
+      h += '<h2>Blueprint cognitive demand — separate system</h2>';
+      bps.slice(0, 3).forEach(function(row){
+        var bp = BPLIB.normalizeBlueprint(row);
+        var slots = (bp.slots || []);
+        var dem = {}, tot = 0;
+        slots.forEach(function(sl){
+          var cc = BPLIB.canonicalCognitive(sl.cognitive_level);
+          var k = cc.level || 'unspecified';
+          dem[k] = (dem[k] || 0) + 1; tot++;
+        });
+        h += '<div class="panel"><h3>' + esc(bp.blueprint_id) + ' — per-paper slot demand (derived from the stored matrix, not official verification)</h3>' +
+          (tot ? '<table class="grid"><thead><tr><th>Level</th>' + BPLIB.COG_ORDER.concat(['unspecified']).filter(function(k){ return dem[k]; }).map(function(k){ return '<th class="num">' + k + '</th>'; }).join('') + '</tr></thead><tbody><tr><th>Slots</th>' +
+            BPLIB.COG_ORDER.concat(['unspecified']).filter(function(k){ return dem[k]; }).map(function(k){ return '<td class="num">' + dem[k] + ' <small class="hint">' + Math.round(100 * dem[k] / tot) + '%</small></td>'; }).join('') +
+            '</tr></tbody></table>' : '<p class="hint">No slots to derive demand from.</p>') +
+          '</div>';
+      });
+      h += '<p class="hint">Compare against the eligible distribution above where both exist. A blueprint per-paper demand of, say, 25% Apply is NOT a bank inventory target — a bank may hold one Apply question per blueprint if the planner can pick it. Inventory floors and blueprint percentages remain separate numbers by design.</p>';
+    }
+    el.innerHTML = h;
+    el.querySelectorAll('[data-cogf]').forEach(function(sel){
+      sel.addEventListener('change', function(){
+        state.cog[sel.getAttribute('data-cogf')] = sel.value; renderCogn();
+      });
+    });
+    el.querySelectorAll('[data-cogmode]').forEach(function(b){
+      b.addEventListener('click', function(){ state.cog.mode = b.getAttribute('data-cogmode'); renderCogn(); });
+    });
+    el.querySelectorAll('[data-cogrow]').forEach(function(tr){
+      tr.addEventListener('click', function(){
+        var t = tr.getAttribute('data-cogrow');
+        state.cog.open = state.cog.open === t ? null : t;
+        renderCogn();
+      });
+    });
+  }
+
   function renderPlan(){
     var el = $('tab-plan');
     var src = (state.server.capacity && state.server.capacity.length) ? state.server.capacity : computeNeeds(srcRows());
@@ -2251,6 +3173,7 @@ function makeMasterFixture(){
       h += '<span class="chip ok">All usable questions map to a blueprint slot</span>';
     }
     h += '</div>';
+    h += invPlanHtml();
     el.innerHTML = h;
     el.querySelectorAll('[data-sev]').forEach(function(b){
       b.addEventListener('click', function(){ state.planSev = b.getAttribute('data-sev'); renderPlan(); });
@@ -2354,6 +3277,8 @@ function makeMasterFixture(){
     });
     $('loadApi').addEventListener('click', function(){
       var url = $('apiUrl').value.trim();
+      if (state.board != null && !/[?&]board=/.test(url))
+        url += (url.indexOf('?') >= 0 ? '&' : '?') + 'board=' + encodeURIComponent(String(state.board));
       var msg = $('dataMsg');
       if (!url){ msg.className = 'msg err'; msg.textContent = 'Enter the n8n webhook URL first.'; return; }
       msg.className = 'msg'; msg.textContent = 'Loading from ' + url + ' \u2026';
@@ -2367,11 +3292,14 @@ function makeMasterFixture(){
         var server = {readiness: data.readiness || [], classes: data.classes || [],
                       capacity: data.capacity || [], actions: data.actions || [],
                       blueprints: data.blueprints || [], slotbank: data.slotbank || [],
-                      bankstats: data.bankstats || []};
+                      bankstats: data.bankstats || [],
+                      inventory: data.inventory || [], cognitive: data.cognitive || [],
+                      inventory_summary: data.inventory_summary || null,
+                      cognitive_summary: data.cognitive_summary || null};
         loadData(cells, 'n8n API', server);   // re-renders this tab → re-query the msg node
         var ok2 = $('dataMsg');
         ok2.className = 'msg okmsg';
-        var extra = ['readiness','classes','capacity','actions','blueprints','slotbank','bankstats'].filter(function(k){ return server[k].length; })
+        var extra = ['readiness','classes','capacity','actions','blueprints','slotbank','bankstats','inventory','cognitive'].filter(function(k){ return server[k].length; })
                       .map(function(k){ return k + ' (' + server[k].length + ')'; });
         ok2.textContent = 'Loaded ' + cells.length + ' cell rows' +
           (extra.length ? ' + ' + extra.join(', ') : ' (no server views in payload — use ?view=all)') + '.';
@@ -2470,22 +3398,32 @@ function makeMasterFixture(){
     if (state.active === 'explorer') renderExplorer();
     else if (state.active === 'bp') renderBlueprint();
     else if (state.active === 'plan') renderPlan();
+    else if (state.active === 'cog') renderCogn();
     else if (state.active === 'chapters') renderOverview();
     else if (state.active === 'matrix') renderMatrix();
     else renderData();
   }
   function renderAll(){
     state.agg = aggregate(state.rows);
+    renderBoardBar();
     renderCards();
     renderActive();
     $('sourceLabel').textContent = 'Source: ' + state.source + ' · ' + state.rows.length + ' rows';
   }
+  function boardOf(r){ return String(r && r.board != null && r.board !== '' ? r.board : '—'); }
+  function scopeRows(rows){
+    if (state.board == null) return rows;
+    var b = String(state.board);
+    return (rows || []).filter(function(r){ return boardOf(r) === b; });
+  }
   function loadData(rawRows, label, server){
-    state.rows = normalizeRows(rawRows);
-    state.raw = rawRows || [];
+    state.rowsAll = normalizeRows(rawRows);
+    state.rawAll = rawRows || [];
+    state.rows = scopeRows(state.rowsAll);
+    state.raw = scopeRows(state.rawAll);
     state.server = server || {};
     state.source = label;
-    state.nav = {board: null, class: null, stream: null, subject: null, chapter: null};
+    state.nav = {board: state.board, class: null, stream: null, subject: null, chapter: null};
     state.lastHeat = null; state.lastPlan = null;
     state.bpSel = null; state.bpOpenSlot = null;
     renderAll();
@@ -2518,5 +3456,5 @@ function makeMasterFixture(){
 })();
 
 </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a48e83686ecb0ee1',t:'MTc5MTcyODUwOA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4b8199e192e97f7',t:'MTc5MjE2NDU3Ng=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
