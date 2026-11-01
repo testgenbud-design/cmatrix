@@ -3,46 +3,67 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MyTST Coverage Intelligence</title>
+<title>myTST Coverage Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 /* ============================================================================
-   myTST Coverage Intelligence — Light Edition
-   Design principles applied from:
+   myTST Coverage Intelligence — Ferrari Edition
+   Design skills applied:
    - taste-skill: minimalist-ui, high-end-visual-design, design-taste-frontend
    - impeccable: shape, document, typeset, layout, adapt, harden, polish
    - emilkowalski/skills: mobile-native, animation-performance, break-ui, pick-ui-library
    
-   Light slate/indigo identity. Strong hierarchy. Refined system typography.
-   Motion is purposeful, never decorative.
+   Identity: Rosso Corsa red, deep carbon black, polished chrome.
+   Premium automotive feel — fast, refined, confident.
    ============================================================================ */
+
 :root {
-  --bg: #f8fafc;
+  /* Light mode */
+  --bg: #f8f9fa;
   --panel: #ffffff;
-  --panel-elev: #f1f5f9;
-  --border: #e2e8f0;
-  --border-soft: #f1f5f9;
-  --ink: #0f172a;
-  --ink-muted: #64748b;
-  --ink-dim: #94a3b8;
-  --accent: #4338ca;
-  --accent-glow: rgba(67, 56, 202, 0.15);
-  --accent-hover: #3730a3;
-  --indigo: #6366f1;
-  --cyan: #0891b2;
-  --emerald: #059669;
-  --emerald-glow: rgba(5, 150, 105, 0.12);
-  --amber: #d97706;
-  --amber-glow: rgba(217, 119, 6, 0.12);
-  --rose: #be123c;
-  --rose-glow: rgba(190, 18, 60, 0.12);
-  --radius: 12px;
-  --radius-sm: 8px;
+  --panel-elev: #f1f3f5;
+  --border: #e9ecef;
+  --border-soft: #f8f9fa;
+  --ink: #111827;
+  --ink-muted: #6b7280;
+  --ink-dim: #9ca3af;
+  --accent: #dc0000;
+  --accent-glow: rgba(220, 0, 0, 0.15);
+  --accent-hover: #b00000;
+  --racing-red: #ff2800;
+  --carbon: #0a0a0a;
+  --carbon-elev: #141414;
   --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 0 1px rgba(0,0,0,0.05);
-  --shadow-md: 0 4px 12px rgba(0,0,0,0.07);
-  --shadow-lg: 0 10px 30px rgba(0,0,0,0.06);
-  --trans: 250ms cubic-bezier(0.23, 1, 0.32, 1);
-  --trans-fast: 140ms cubic-bezier(0.16, 1, 0.3, 1);
-  --unit: 8px;
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
+  --shadow-lg: 0 10px 30px rgba(0,0,0,0.05);
+  --trans: 300ms cubic-bezier(0.23, 1, 0.32, 1);
+  --trans-fast: 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  --radius: 14px;
+  --radius-sm: 10px;
+  --max-width: 1400px;
+}
+
+[data-theme="dark"] {
+  /* Dark mode */
+  --bg: #050505;
+  --panel: #0a0a0a;
+  --panel-elev: #111111;
+  --border: #1a1a1a;
+  --border-soft: #0f0f0f;
+  --ink: #f5f5f5;
+  --ink-muted: #a1a1aa;
+  --ink-dim: #71717a;
+  --accent: #ff2800;
+  --accent-glow: rgba(255, 40, 0, 0.25);
+  --accent-hover: #ff4530;
+  --racing-red: #ff3b30;
+  --carbon: #000000;
+  --carbon-elev: #0a0a0a;
+  --shadow: 0 1px 3px rgba(0,0,0,0.4), 0 0 1px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.5);
+  --shadow-lg: 0 10px 30px rgba(0,0,0,0.6);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -51,15 +72,18 @@ html { font-size: 16px; scroll-behavior: smooth; }
 body {
   background: var(--bg);
   color: var(--ink);
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  font-family: 'Outfit', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   font-size: 0.9375rem;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+  transition: background-color 0.4s ease, color 0.4s ease;
 }
 
-h1, h2, h3, h4 { font-weight: 700; letter-spacing: -0.02em; }
+h1, h2, h3, h4 { font-weight: 700; letter-spacing: -0.02em; color: var(--ink); }
+h1, h2 { font-weight: 800; }
 p { color: var(--ink-muted); }
+.mono { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; }
 
 a { color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent; }
 a:hover { color: var(--accent-hover); border-bottom-color: var(--accent); }
@@ -69,174 +93,239 @@ a:hover { color: var(--accent-hover); border-bottom-color: var(--accent); }
   * { animation: none !important; transition: none !important; }
 }
 
-/* ---------- layout ---------- */
-.app { display: flex; flex-direction: column; min-height: 100vh; position: relative; }
+/* ---------- theme toggle ---------- */
+.theme-toggle {
+  position: relative;
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all var(--trans-fast);
+  color: var(--ink);
+}
+.theme-toggle:hover { border-color: var(--accent); color: var(--accent); transform: rotate(15deg); }
+.theme-toggle .sun, .theme-toggle .moon {
+  position: absolute; font-size: 1.1rem; transition: all var(--trans-fast);
+}
+.theme-toggle .sun { opacity: 1; transform: scale(1); }
+.theme-toggle .moon { opacity: 0; transform: scale(0.8) rotate(-10deg); }
+[data-theme="dark"] .theme-toggle .sun { opacity: 0; transform: scale(0.8) rotate(10deg); }
+[data-theme="dark"] .theme-toggle .moon { opacity: 1; transform: scale(1); }
 
+/* ---------- background life ---------- */
+.app { display: flex; flex-direction: column; min-height: 100vh; position: relative; }
+.bg-mesh {
+  position: fixed; inset: 0; z-index: -1; opacity: 0.5;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(220, 0, 0, 0.08) 0%, transparent 45%),
+    radial-gradient(circle at 80% 75%, rgba(13, 13, 13, 0.06) 0%, transparent 45%);
+  animation: mesh-breathe 14s ease-in-out infinite alternate;
+}
+[data-theme="dark"] .bg-mesh {
+  background:
+    radial-gradient(circle at 15% 20%, rgba(220, 0, 0, 0.12) 0%, transparent 45%),
+    radial-gradient(circle at 80% 75%, rgba(255, 255, 255, 0.02) 0%, transparent 45%);
+}
+@keyframes mesh-breathe { from { transform: scale(1); } to { transform: scale(1.06); } }
+
+/* ---------- racing stripe header accent ---------- */
+.topbar::after {
+  content: ""; position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--racing-red), var(--accent));
+  opacity: 0.9;
+}
+
+/* ---------- sidebar ---------- */
 .sidebar {
   position: fixed; left: 0; top: 0; bottom: 0;
-  width: 240px; background: var(--panel);
+  width: 252px; background: var(--panel);
   border-right: 1px solid var(--border);
   z-index: 100; display: flex; flex-direction: column;
   transform: translateX(0); transition: transform var(--trans);
+  box-shadow: var(--shadow-md);
 }
 .sidebar .brand {
-  padding: 20px 18px; font-weight: 800; font-size: 1.15rem;
+  padding: 24px 18px; font-weight: 900; font-size: 1.25rem;
   letter-spacing: -0.04em; color: var(--ink);
   border-bottom: 1px solid var(--border);
   display: flex; align-items: center; gap: 12px;
+  background: linear-gradient(180deg, var(--panel), rgba(220,0,0,0.02));
 }
 .sidebar .brand .mark {
-  width: 34px; height: 34px; border-radius: 10px;
-  background: linear-gradient(135deg, var(--accent), var(--indigo));
-  display: grid; place-items: center; color: #fff; font-size: 1.15rem;
-  box-shadow: 0 4px 14px var(--accent-glow);
+  width: 40px; height: 40px; border-radius: 12px;
+  background: linear-gradient(135deg, var(--accent), var(--racing-red));
+  display: grid; place-items: center; color: #fff; font-size: 1.35rem;
+  box-shadow: 0 0 20px var(--accent-glow);
+  animation: mark-pulse 3s ease-in-out infinite;
 }
-.sidebar nav { flex: 1; overflow-y: auto; padding: 14px 0; }
+@keyframes mark-pulse { 0%,100% { box-shadow: 0 0 20px var(--accent-glow); } 50% { box-shadow: 0 0 35px var(--accent-glow); } }
+.sidebar nav { flex: 1; overflow-y: auto; padding: 16px 0; }
 .sidebar ul { list-style: none; }
 .sidebar li { margin: 0 8px 4px; }
 .sidebar a {
   display: flex; align-items: center; gap: 12px;
-  padding: 10px 16px; color: var(--ink-muted);
-  font-size: 0.85rem; font-weight: 600;
-  border-left: 3px solid transparent; border-radius: 0 10px 10px 0;
+  padding: 11px 18px; color: var(--ink-muted);
+  font-size: 0.86rem; font-weight: 600;
+  border-left: 3px solid transparent; border-radius: 0 11px 11px 0;
   margin: 3px 10px;
   transition: all var(--trans-fast);
   cursor: pointer;
 }
-.sidebar a:hover { background: var(--panel-elev); color: var(--ink); border-left-color: var(--accent); transform: translateX(2px); }
+.sidebar a:hover { background: rgba(220,0,0,0.06); color: var(--ink); border-left-color: var(--accent); transform: translateX(3px); }
 .sidebar a.active {
-  background: rgba(67,56,202,0.08); color: var(--accent);
+  background: rgba(220,0,0,0.1); color: var(--accent);
   border-left-color: var(--accent);
-  box-shadow: inset 0 0 0 1px rgba(67,56,202,0.15);
+  box-shadow: inset 0 0 0 1px rgba(220,0,0,0.15);
 }
 .sidebar a .icon { width: 18px; text-align: center; font-size: 1rem; }
 .sidebar .footer {
-  padding: 18px; font-size: 0.7rem; color: var(--ink-dim);
+  padding: 20px 18px; font-size: 0.7rem; color: var(--ink-dim);
   border-top: 1px solid var(--border); letter-spacing: 0.3px; line-height: 1.5;
 }
 
-.app-body { flex: 1; margin-left: 240px; display: flex; flex-direction: column; min-width: 0; }
+.app-body { flex: 1; margin-left: 252px; display: flex; flex-direction: column; min-width: 0; }
 
 .topbar {
-  height: 58px; background: var(--panel);
+  height: 64px; background: rgba(255,255,255,0.6);
   border-bottom: 1px solid var(--border);
   display: flex; align-items: center; justify-content: space-between;
-  padding: 0 24px; flex-shrink: 0; z-index: 60;
+  padding: 0 26px; flex-shrink: 0; z-index: 60;
+  backdrop-filter: blur(12px);
+  transition: background 0.4s ease, border-color 0.4s ease;
+}
+[data-theme="dark"] .topbar {
+  background: rgba(10,10,10,0.7);
 }
 .topbar-left { display: flex; align-items: center; gap: 18px; }
-.topbar h1 { font-size: 1rem; font-weight: 700; color: var(--ink); letter-spacing: -0.02em; }
+.topbar h1 { font-size: 1.05rem; font-weight: 800; color: var(--ink); letter-spacing: -0.02em; }
 .topbar .live-indicator {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 5px 13px; border-radius: 24px;
-  background: var(--emerald-glow); color: var(--emerald);
-  border: 1px solid rgba(5,150,105,0.25);
-  font-size: 0.72rem; font-weight: 700;
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 6px 15px; border-radius: 26px;
+  background: rgba(220,0,0,0.08); color: var(--accent);
+  border: 1px solid rgba(220,0,0,0.25);
+  font-size: 0.74rem; font-weight: 700;
 }
-.topbar .live-indicator .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--emerald); box-shadow: 0 0 10px var(--emerald-glow); animation: pulse 3s infinite; }
-@keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.15); } }
+.topbar .live-indicator .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 14px var(--accent-glow); animation: pulse 3s infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.55; transform: scale(1.18); } }
 .topbar-right { display: flex; align-items: center; gap: 12px; }
 
-.main { flex: 1; overflow-y: auto; padding: 28px 34px 40px; min-width: 0; }
+.main { flex: 1; overflow-y: auto; padding: 32px 40px 48px; min-width: 0; }
 
 .breadcrumb {
   display: flex; align-items: center; gap: 8px;
-  margin-bottom: 24px; font-size: 0.78rem; color: var(--ink-muted);
+  margin-bottom: 28px; font-size: 0.78rem; color: var(--ink-muted);
   flex-wrap: wrap;
 }
-.breadcrumb a { color: var(--ink-muted); padding: 2px 6px; border-radius: 6px; transition: all var(--trans-fast); }
+.breadcrumb a { color: var(--ink-muted); padding: 2px 7px; border-radius: 7px; transition: all var(--trans-fast); }
 .breadcrumb a:hover { background: var(--panel-elev); color: var(--accent); }
-.breadcrumb .sep { color: var(--ink-dim); margin: 0 4px; }
+.breadcrumb .sep { color: var(--ink-dim); margin: 0 5px; }
 .breadcrumb .current { color: var(--ink); font-weight: 700; }
 
 .section { display: none; }
-.section.active { display: block; animation: fade-in var(--trans); }
-@keyframes fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.section.active { display: block; animation: section-in var(--trans); }
+@keyframes section-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-.section-header { margin-bottom: 26px; }
+.section-header { margin-bottom: 30px; }
 .section-header h2 {
-  font-size: 1.4rem; font-weight: 800; color: var(--ink); margin-bottom: 8px; display: flex; align-items: center; gap: 12px;
+  font-size: 1.5rem; font-weight: 800; color: var(--ink); margin-bottom: 10px; display: flex; align-items: center; gap: 12px;
 }
 .section-header h2 .num {
-  width: 30px; height: 30px; border-radius: 8px; background: linear-gradient(135deg, var(--accent), var(--indigo));
-  color: #fff; font-size: 0.85rem; font-weight: 900; display: grid; place-items: center;
-  box-shadow: 0 4px 12px var(--accent-glow);
+  width: 34px; height: 34px; border-radius: 10px; background: linear-gradient(135deg, var(--accent), var(--racing-red));
+  color: #fff; font-size: 0.9rem; font-weight: 900; display: grid; place-items: center;
+  box-shadow: 0 4px 14px var(--accent-glow);
 }
-.section-header p { color: var(--ink-muted); font-size: 0.9rem; }
+.section-header p { color: var(--ink-muted); font-size: 0.92rem; max-width: 600px; }
 
 /* ---------- stat strip ---------- */
-.stat-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 28px; }
+.stat-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px; }
 .stat-card {
   background: var(--panel); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 18px 20px;
+  border-radius: var(--radius); padding: 20px 22px;
   transition: all var(--trans);
   animation: card-up var(--trans-fast) both;
+  position: relative; overflow: hidden;
 }
-.stat-card:nth-child(1){animation-delay:0.04s;} .stat-card:nth-child(2){animation-delay:0.08s;}
-.stat-card:nth-child(3){animation-delay:0.12s;} .stat-card:nth-child(4){animation-delay:0.16s;}
-.stat-card:nth-child(5){animation-delay:0.20s;} .stat-card:nth-child(6){animation-delay:0.24s;}
-.stat-card:nth-child(7){animation-delay:0.28s;} .stat-card:nth-child(8){animation-delay:0.32s;}
-@keyframes card-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-.stat-card:hover { border-color: var(--accent); box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.stat-card:nth-child(1){animation-delay:0.05s;} .stat-card:nth-child(2){animation-delay:0.1s;}
+.stat-card:nth-child(3){animation-delay:0.15s;} .stat-card:nth-child(4){animation-delay:0.2s;}
+.stat-card:nth-child(5){animation-delay:0.25s;} .stat-card:nth-child(6){animation-delay:0.3s;}
+.stat-card:nth-child(7){animation-delay:0.35s;} .stat-card:nth-child(8){animation-delay:0.4s;}
+@keyframes card-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+.stat-card::after {
+  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--racing-red), var(--accent));
+  transform: scaleX(0); transform-origin: left; transition: transform var(--trans);
+}
+.stat-card:hover { border-color: var(--accent); box-shadow: var(--shadow-md); transform: translateY(-3px); z-index: 2; }
+.stat-card:hover::after { transform: scaleX(1); }
 .stat-card .label {
   font-size: 0.68rem; font-weight: 800; color: var(--ink-dim);
-  text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;
+  text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 9px; display: flex; justify-content: space-between; align-items: center;
 }
-.stat-card .value { font-size: 1.9rem; font-weight: 800; color: var(--ink); margin-bottom: 4px; }
-.stat-card .sub { font-size: 0.8rem; color: var(--ink-muted); margin-bottom: 10px; }
-.stat-card .mini { display: flex; gap: 7px; }
-.stat-card .spark { flex: 1; height: 24px; display: flex; align-items: flex-end; gap: 3px; }
-.stat-card .spark .bar { width: 5px; background: var(--border-soft); border-radius: 3px; transition: height var(--trans), background var(--trans); }
-.stat-card .spark .bar.active { background: var(--accent); }
+.stat-card .value { font-size: 2rem; font-weight: 800; color: var(--ink); margin-bottom: 6px; }
+.stat-card .sub { font-size: 0.8rem; color: var(--ink-muted); margin-bottom: 12px; line-height: 1.45; }
+.stat-card .mini { display: flex; gap: 8px; }
+.stat-card .spark { flex: 1; height: 26px; display: flex; align-items: flex-end; gap: 4px; }
+.stat-card .spark .bar { width: 5px; background: var(--border-soft); border-radius: 4px; transition: height var(--trans), background var(--trans); }
+.stat-card .spark .bar.active { background: var(--accent-hover); }
 .stat-card .trend { font-size: 0.72rem; font-weight: 800; margin-left: auto; }
 
 /* ---------- card ---------- */
 .card {
   background: var(--panel); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 22px;
+  border-radius: var(--radius); padding: 24px;
   transition: border-color var(--trans), box-shadow var(--trans);
   animation: fade-in var(--trans-fast) both;
 }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 .card:hover { border-color: var(--border-soft); }
-.card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
-.card h3 { font-size: 1rem; font-weight: 700; color: var(--ink); letter-spacing: -0.02em; }
-.card .sub { font-size: 0.84rem; color: var(--ink-muted); margin-top: 4px; }
+.card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.card h3 { font-size: 1.05rem; font-weight: 700; color: var(--ink); letter-spacing: -0.02em; }
+.card .sub { font-size: 0.85rem; color: var(--ink-muted); margin-top: 5px; }
 
 /* ---------- toolbar ---------- */
 .toolbar {
   display: flex; align-items: center; gap: 10px;
-  flex-wrap: wrap; margin-bottom: 20px;
+  flex-wrap: wrap; margin-bottom: 22px;
 }
 .filter-wrap {
-  display: inline-flex; align-items: center; gap: 9px;
-  padding: 9px 16px; background: var(--panel-elev);
-  border: 1px solid var(--border); border-radius: 32px;
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 10px 17px; background: var(--panel-elev);
+  border: 1px solid var(--border); border-radius: 34px;
   transition: all var(--trans-fast);
 }
-.filter-wrap:focus-within { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(67,56,202,0.12); }
+.filter-wrap:focus-within { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(220,0,0,0.1); }
 .filter-wrap label { font-size: 0.68rem; font-weight: 800; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.4px; white-space: nowrap; }
 .filter-wrap select {
   background: transparent; border: none; color: var(--ink);
-  font-size: 0.87rem; padding: 3px 7px; cursor: pointer; outline: none; min-width: 105px;
+  font-size: 0.87rem; padding: 3px 8px; cursor: pointer; outline: none; min-width: 110px;
 }
 .filter-wrap select:focus { color: var(--accent-hover); }
 
 /* ---------- buttons ---------- */
 .btn {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 9px 18px; border: 1px solid transparent; border-radius: 32px;
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 10px 20px; border: 1px solid transparent; border-radius: 34px;
   font-size: 0.85rem; font-weight: 700; cursor: pointer;
   transition: all var(--trans-fast);
   background: var(--panel-elev); color: var(--ink); border-color: var(--border);
 }
 .btn:hover { background: var(--panel); border-color: var(--ink-muted); transform: translateY(-1px); }
 .btn:active { transform: translateY(0) scale(0.97); }
-.btn.primary { background: linear-gradient(135deg, var(--accent), var(--indigo)); border: none; color: #fff; box-shadow: 0 0 0 rgba(67,56,202,0); }
-.btn.primary:hover { box-shadow: 0 0 20px var(--accent-glow); transform: translateY(-2px); }
+.btn.primary { background: linear-gradient(135deg, var(--accent), var(--racing-red)); border: none; color: #fff; box-shadow: 0 0 0 rgba(220,0,0,0); }
+.btn.primary:hover { box-shadow: 0 0 24px var(--accent-glow); transform: translateY(-2px); }
 .btn.secondary { background: transparent; border-color: var(--border); color: var(--ink); }
 .btn.secondary:hover { border-color: var(--accent); color: var(--accent-hover); }
-.btn.small { padding: 6px 14px; font-size: 0.8rem; font-weight: 600; }
-.btn.icon { padding: 9px; width: 38px; height: 38px; justify-content: center; border-radius: 12px; }
+.btn.small { padding: 7px 15px; font-size: 0.8rem; font-weight: 600; }
+.btn.icon { padding: 10px; width: 40px; height: 40px; justify-content: center; border-radius: 14px; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.btn.loading { position: relative; color: transparent !important; }
+.btn.loading::after {
+  content: ""; position: absolute; width: 16px; height: 16px;
+  border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
 
 /* ---------- tables ---------- */
 .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); animation: fade-in var(--trans-fast); }
@@ -244,13 +333,14 @@ table.data { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
 table.data th {
   background: var(--panel-elev); color: var(--ink-dim);
   font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;
-  text-align: left; padding: 13px 17px; border-bottom: 1px solid var(--border); white-space: nowrap;
+  text-align: left; padding: 14px 18px; border-bottom: 1px solid var(--border); white-space: nowrap;
 }
-table.data td { padding: 13px 17px; border-bottom: 1px solid var(--border-soft); color: var(--ink); vertical-align: middle; transition: background var(--trans-fast); }
+table.data td { padding: 14px 18px; border-bottom: 1px solid var(--border-soft); color: var(--ink); vertical-align: middle; transition: background var(--trans-fast); }
 table.data tr:last-child td { border-bottom: none; }
-table.data tr:hover td { background: rgba(67,56,202,0.04); }
+table.data tr:hover td { background: rgba(220,0,0,0.03); }
 table.data tr.interactive { cursor: pointer; }
-table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: translateX(4px); transition: all var(--trans-fast); }
+table.data tr.interactive:hover { background: rgba(220,0,0,0.06); transform: translateX(5px); transition: all var(--trans-fast); }
+table.data tr.interactive:active { transform: translateX(0); }
 
 /* ---------- badges ---------- */
 .badge {
@@ -259,40 +349,42 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
   white-space: nowrap; letter-spacing: 0.2px; transition: all var(--trans-fast);
 }
 .badge.pill { background: var(--panel-elev); color: var(--ink-muted); border: 1px solid var(--border-soft); }
-.badge.ok { background: var(--emerald-glow); color: var(--emerald); border: 1px solid rgba(5,150,105,0.25); }
-.badge.warn { background: rgba(217,119,6,0.12); color: var(--amber); border: 1px solid rgba(217,119,6,0.25); }
-.badge.err { background: rgba(190,18,60,0.12); color: var(--rose); border: 1px solid rgba(190,18,60,0.25); }
+.badge.ok { background: rgba(220,0,0,0.08); color: var(--accent); border: 1px solid rgba(220,0,0,0.25); }
+.badge.ok:hover { background: rgba(220,0,0,0.16); color: var(--accent-hover); border-color: var(--accent); transform: scale(1.05); }
+.badge.warn { background: rgba(255, 40, 0, 0.08); color: var(--racing-red); border: 1px solid rgba(255, 40, 0, 0.25); }
+.badge.err { background: rgba(220,0,0,0.08); color: var(--accent); border: 1px solid rgba(220,0,0,0.25); }
 .badge.neutral { background: var(--panel-elev); color: var(--ink-muted); border: 1px solid var(--border-soft); }
-.badge.accent { background: rgba(67,56,202,0.1); color: var(--accent); border: 1px solid rgba(67,56,202,0.2); }
-.badge:hover { transform: scale(1.05); }
+.badge.accent { background: rgba(220,0,0,0.1); color: var(--accent); border: 1px solid rgba(220,0,0,0.2); }
+.badge.accent:hover { background: rgba(220,0,0,0.2); color: var(--accent-hover); border-color: var(--accent-hover); transform: scale(1.05); }
 
 /* ---------- chips ---------- */
 .chip {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 5px 10px; border: 1px solid var(--border-soft);
-  border-radius: 22px; font-size: 0.74rem; color: var(--ink-muted); background: var(--panel-elev);
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 11px; border: 1px solid var(--border-soft);
+  border-radius: 24px; font-size: 0.74rem; color: var(--ink-muted); background: var(--panel-elev);
   transition: all var(--trans-fast);
 }
-.chip:hover { border-color: var(--accent); color: var(--accent-hover); background: rgba(67,56,202,0.06); }
+.chip:hover { border-color: var(--accent); color: var(--accent-hover); background: rgba(220,0,0,0.06); }
 .chip.type { border-color: var(--accent); color: var(--accent-hover); }
-.chip.type:hover { background: var(--accent); color: #fff; border-color: var(--accent); box-shadow: 0 0 12px var(--accent-glow); }
-.chip.marks { border-color: var(--cyan); color: var(--cyan); }
-.chip.marks:hover { background: var(--cyan); color: #fff; border-color: var(--cyan); box-shadow: 0 0 12px rgba(8,145,178,0.3); }
-.chip.diff { border-color: var(--amber); color: var(--amber); }
-.chip.diff:hover { background: var(--amber); color: #fff; border-color: var(--amber); box-shadow: 0 0 12px rgba(217,119,6,0.3); }
-.chip.cog { border-color: var(--emerald); color: var(--emerald); }
-.chip.cog:hover { background: var(--emerald); color: #fff; border-color: var(--emerald); box-shadow: 0 0 12px var(--emerald-glow); }
+.chip.type:hover { background: var(--accent); color: #fff; border-color: var(--accent); box-shadow: 0 0 14px var(--accent-glow); }
+.chip.marks { border-color: #000; color: #000; }
+.chip.marks:hover { background: #000; color: #fff; border-color: #000; box-shadow: 0 0 14px rgba(0,0,0,0.3); }
+.chip.diff { border-color: var(--racing-red); color: var(--racing-red); }
+.chip.diff:hover { background: var(--racing-red); color: #fff; border-color: var(--racing-red); box-shadow: 0 0 14px rgba(255,40,0,0.3); }
+.chip.cog { border-color: var(--accent); color: var(--accent); }
+.chip.cog:hover { background: var(--accent); color: #fff; border-color: var(--accent); box-shadow: 0 0 14px var(--accent-glow); }
 
 /* ---------- charts ---------- */
-.chart-wrap { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 20px; animation: fade-in var(--trans-fast); }
-.chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-.chart-header h4 { font-size: 0.9rem; font-weight: 700; color: var(--ink); }
-.chart-svg { width: 100%; height: 260px; display: block; }
-.bar-label { font-size: 0.75rem; fill: var(--ink-muted); text-anchor: middle; font-weight: 600; }
+.chart-wrap { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px; margin-bottom: 24px; animation: fade-in var(--trans-fast); }
+.chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.chart-header h4 { font-size: 0.92rem; font-weight: 700; color: var(--ink); }
+.chart-svg { width: 100%; height: 240px; display: block; }
+.bar-label { font-size: 0.74rem; fill: var(--ink-muted); text-anchor: middle; font-weight: 600; }
 .bar-value { font-size: 0.7rem; fill: var(--ink-dim); text-anchor: middle; font-weight: 700; }
-.legend { display: flex; gap: 16px; margin-top: 10px; font-size: 0.78rem; color: var(--ink-muted); }
-.legend-item { display: flex; align-items: center; gap: 6px; }
-.legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+.legend { display: flex; gap: 18px; margin-top: 12px; font-size: 0.78rem; color: var(--ink-muted); flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 7px; cursor: pointer; transition: color var(--trans-fast); }
+.legend-item:hover { color: var(--ink); }
+.legend-dot { width: 9px; height: 9px; border-radius: 50%; transition: all var(--trans-fast); }
 
 /* ---------- hierarchy ---------- */
 .hierarchy { display: flex; flex-direction: column; gap: 8px; }
@@ -300,13 +392,13 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
 @keyframes slide-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 .level-header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 18px; cursor: pointer;
-  background: linear-gradient(180deg, rgba(67,56,202,0.02), transparent);
+  padding: 13px 20px; cursor: pointer;
+  background: linear-gradient(180deg, rgba(220,0,0,0.02), transparent);
   border-bottom: 1px solid var(--border-soft);
   user-select: none; transition: background var(--trans-fast);
 }
-.level-header:hover { background: rgba(67,56,202,0.05); }
-.level-header .title { font-weight: 700; color: var(--ink); font-size: 0.88rem; }
+.level-header:hover { background: rgba(220,0,0,0.05); }
+.level-header .title { font-weight: 700; color: var(--ink); font-size: 0.9rem; }
 .level-header .count { color: var(--ink-dim); font-size: 0.82rem; font-variant-numeric: tabular-nums; }
 .level-header .chevron {
   width: 14px; height: 14px; border: 2px solid var(--ink-dim);
@@ -318,16 +410,16 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
 .level-body.collapsed { display: none; }
 
 .topic-row, .subtopic-row {
-  display: flex; align-items: center; padding: 10px 18px;
+  display: flex; align-items: center; padding: 11px 20px;
   border-bottom: 1px solid var(--border-soft);
   font-size: 0.84rem; transition: all var(--trans-fast);
 }
 .topic-row { background: var(--panel); }
-.topic-row:hover { background: rgba(67,56,202,0.04); }
-.subtopic-row { background: var(--panel-elev); padding-left: 44px; font-size: 0.82rem; }
-.subtopic-row:hover { background: rgba(67,56,202,0.03); }
+.topic-row:hover { background: rgba(220,0,0,0.04); }
+.subtopic-row { background: var(--panel-elev); padding-left: 50px; font-size: 0.82rem; }
+.subtopic-row:hover { background: rgba(220,0,0,0.03); }
 .topic-row:last-child, .subtopic-row:last-child { border-bottom: none; }
-.subtopic-row .meta { margin-left: auto; display: flex; align-items: center; gap: 9px; font-size: 0.72rem; color: var(--ink-muted); }
+.subtopic-row .meta { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 0.72rem; color: var(--ink-muted); }
 .subtopic-row .meta b { color: var(--ink); }
 
 /* ---------- blueprint slots ---------- */
@@ -339,60 +431,60 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
 }
 .slot-row.head { background: var(--panel-elev); font-size: 0.68rem; font-weight: 800; text-transform: uppercase; color: var(--ink-dim); border-bottom: 1px solid var(--border); letter-spacing: 0.4px; }
 .slot-row:last-child { border-bottom: none; }
-.slot-row:hover { background: rgba(67,56,202,0.03); }
-.slot-row .slot-id { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.76rem; color: var(--ink-dim); }
+.slot-row:hover { background: rgba(220,0,0,0.03); }
+.slot-row .slot-id { font-family: 'JetBrains Mono', monospace; font-size: 0.76rem; color: var(--ink-dim); }
 
 /* ---------- drawer ---------- */
 .overlay {
-  position: fixed; inset: 0; background: rgba(15,23,42,0.1); z-index: 150;
-  display: none; backdrop-filter: blur(4px);
+  position: fixed; inset: 0; background: rgba(5,5,5,0.15); z-index: 150;
+  display: none; backdrop-filter: blur(6px);
 }
 .overlay.open { display: block; animation: fade-in 250ms; }
 .drawer {
   position: fixed; inset: 0 auto 0 0; z-index: 200;
-  width: 480px; max-width: 92vw; background: var(--panel);
+  width: 500px; max-width: 92vw; background: var(--panel);
   border-right: 1px solid var(--border); transform: translateX(-100%);
   transition: transform var(--trans); display: flex; flex-direction: column;
   box-shadow: var(--shadow-lg);
 }
 .drawer.open { transform: translateX(0); animation: drawer-in 350ms cubic-bezier(0.23,1,0.32,1); }
-@keyframes drawer-in { from { transform: translateX(-30px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes drawer-in { from { transform: translateX(-35px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 .drawer-header {
-  padding: 18px 22px; border-bottom: 1px solid var(--border);
+  padding: 20px 24px; border-bottom: 1px solid var(--border);
   display: flex; align-items: center; justify-content: space-between; background: var(--panel);
 }
-.drawer-header h3 { font-size: 1.05rem; font-weight: 800; color: var(--ink); letter-spacing: -0.02em; }
-.drawer-body { flex: 1; overflow-y: auto; padding: 22px; }
-.drawer-footer { padding: 16px 22px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
+.drawer-header h3 { font-size: 1.08rem; font-weight: 800; color: var(--ink); letter-spacing: -0.02em; }
+.drawer-body { flex: 1; overflow-y: auto; padding: 24px; }
+.drawer-footer { padding: 18px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
 
 /* ---------- toast ---------- */
-.toast-container { position: fixed; bottom: 26px; right: 26px; z-index: 500; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+.toast-container { position: fixed; bottom: 28px; right: 28px; z-index: 500; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
 .toast {
   pointer-events: auto; display: flex; align-items: center; gap: 12px;
-  padding: 13px 18px; background: var(--panel); border: 1px solid var(--border);
+  padding: 14px 20px; background: var(--panel); border: 1px solid var(--border);
   border-left: 4px solid var(--accent); border-radius: 12px;
   color: var(--ink); font-size: 0.88rem; font-weight: 700;
-  box-shadow: var(--shadow-md); transform: translateY(140px) scale(0.95); opacity: 0;
+  box-shadow: var(--shadow-md); transform: translateY(150px) scale(0.95); opacity: 0;
   transition: transform var(--trans), opacity var(--trans);
 }
 .toast.show { transform: translateY(0) scale(1); opacity: 1; }
-.toast .icon { width: 22px; height: 22px; border-radius: 8px; background: var(--panel-elev); display: grid; place-items: center; font-size: 0.9rem; }
+.toast .icon { width: 24px; height: 24px; border-radius: 10px; background: var(--panel-elev); display: grid; place-items: center; font-size: 0.95rem; }
 
 /* ---------- empty / loading ---------- */
 .empty-state {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  padding: 80px 24px; text-align: center; color: var(--ink-muted);
+  padding: 90px 24px; text-align: center; color: var(--ink-muted);
   animation: fade-in 0.6s;
 }
-.empty-state svg { width: 110px; height: 110px; margin-bottom: 22px; color: var(--ink-dim); opacity: 0.35; animation: float 4s ease-in-out infinite; }
-@keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
-.empty-state h3 { color: var(--ink); margin-bottom: 10px; font-size: 1.1rem; font-weight: 800; }
-.empty-state p { font-size: 0.9rem; max-width: 340px; line-height: 1.7; }
+.empty-state svg { width: 120px; height: 120px; margin-bottom: 24px; color: var(--ink-dim); opacity: 0.25; animation: float 5s ease-in-out infinite; }
+@keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+.empty-state h3 { color: var(--ink); margin-bottom: 12px; font-size: 1.15rem; font-weight: 800; }
+.empty-state p { font-size: 0.92rem; max-width: 360px; line-height: 1.7; }
 .loading {
   display: inline-flex; align-items: center; gap: 12px;
   color: var(--ink-muted); font-size: 0.9rem; font-weight: 700;
 }
-.spinner { width: 18px; height: 18px; border: 2.5px solid var(--border-soft); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+.spinner { width: 20px; height: 20px; border: 2.5px solid var(--border-soft); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ---------- responsive ---------- */
@@ -400,7 +492,7 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
   .sidebar { transform: translateX(-100%); }
   .sidebar.open { transform: translateX(0); z-index: 250; }
   .app-body { margin-left: 0; }
-  .main { padding: 22px 26px 34px; }
+  .main { padding: 24px 28px 38px; }
   .stat-strip { grid-template-columns: 1fr 1fr; }
   .topbar { padding: 0 18px; }
   .toolbar { flex-direction: column; align-items: stretch; }
@@ -410,15 +502,17 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
 }
 @media (max-width: 600px) {
   .stat-strip { grid-template-columns: 1fr; }
-  .stat-card .value { font-size: 1.6rem; }
+  .stat-card .value { font-size: 1.7rem; }
   .topbar-left { gap: 12px; }
   .topbar h1 { font-size: 1rem; }
-  .main { padding: 18px 22px 28px; }
-  table.data th, table.data td { padding: 10px 8px; font-size: 0.8rem; }
+  .main { padding: 20px 24px 30px; }
+  table.data th, table.data td { padding: 11px 9px; font-size: 0.8rem; }
 }
 </style>
 </head>
 <body>
+
+<div class="bg-mesh"></div>
 
 <div class="app">
   <!-- Sidebar -->
@@ -434,7 +528,7 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
     </nav>
     <div class="footer">
       myTST Coverage Intelligence<br>
-      Light edition · Real data
+      Ferrari edition · Live data
     </div>
   </aside>
 
@@ -443,7 +537,10 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
       <div class="topbar-left">
         <button class="btn icon" id="menu-toggle" aria-label="Toggle navigation">☰</button>
         <h1>Coverage Intelligence</h1>
-        <span class="live-indicator" id="api-status"><span class="dot"></span> Live — PostgreSQL</span>
+        <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme" title="Light / Dark mode">
+          <span class="sun">☀️</span><span class="moon">🌙</span>
+        </button>
+        <span class="live-indicator" id="api-status"><span class="dot"></span> Connected — PostgreSQL</span>
       </div>
       <div class="topbar-right">
         <button class="btn secondary small" id="refresh-btn" title="Refresh data">↻ Refresh</button>
@@ -470,31 +567,31 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
             <h3>Question Type Distribution</h3>
             <span class="badge neutral" id="qtype-count-badge">0 types</span>
           </div>
-          <div class="chart-wrap" style="padding-bottom:8px;">
-            <svg class="chart-svg" id="chart-type" viewBox="0 0 700 260" preserveAspectRatio="none"></svg>
+          <div class="chart-wrap" style="padding-bottom:10px;">
+            <svg class="chart-svg" id="chart-type" viewBox="0 0 700 240" preserveAspectRatio="none"></svg>
           </div>
         </div>
 
-        <div class="card u-mt-16">
-          <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;">
+        <div class="card u-mt-20">
+          <div class="card-header">
             <h3>Difficulty Distribution</h3>
           </div>
-          <div class="chart-wrap" style="padding-bottom:8px;">
-            <svg class="chart-svg" id="chart-difficulty" viewBox="0 0 700 220" preserveAspectRatio="none"></svg>
+          <div class="chart-wrap" style="padding-bottom:10px;">
+            <svg class="chart-svg" id="chart-difficulty" viewBox="0 0 700 200" preserveAspectRatio="none"></svg>
           </div>
         </div>
 
-        <div class="card u-mt-16">
-          <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;">
+        <div class="card u-mt-20">
+          <div class="card-header">
             <h3>Eligibility &amp; Review Queue</h3>
             <span class="badge neutral" id="queue-count-badge">0 items</span>
           </div>
-          <div class="chart-wrap" style="padding-bottom:8px;">
-            <svg class="chart-svg" id="chart-eligibility" viewBox="0 0 700 220" preserveAspectRatio="none"></svg>
+          <div class="chart-wrap" style="padding-bottom:10px;">
+            <svg class="chart-svg" id="chart-eligibility" viewBox="0 0 700 200" preserveAspectRatio="none"></svg>
           </div>
         </div>
 
-        <div class="card u-mt-16">
+        <div class="card u-mt-20">
           <div class="card-header">
             <h3>Subject-Wise Coverage</h3>
             <span class="badge neutral" id="subject-count-badge">0 subjects</span>
@@ -516,7 +613,7 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
       <section class="section" id="question-bank">
         <div class="section-header">
           <h2><span class="num">2</span>Question Bank</h2>
-          <p>Every question in the bank, with its full metadata. Use this to assess what is useful and what is not.</p>
+          <p>Every question in the bank, with full metadata. Use this to assess what is useful and what is not.</p>
         </div>
 
         <div class="toolbar">
@@ -543,7 +640,7 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
             <h3>All Questions</h3>
             <span class="badge neutral" id="bank-count-badge">0 questions</span>
           </div>
-          <div class="table-wrap" style="margin-top:8px;">
+          <div class="table-wrap" style="margin-top:10px;">
             <table class="data">
               <thead>
                 <tr>
@@ -636,7 +733,7 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
           </div>
         </div>
 
-        <div class="card u-mt-16">
+        <div class="card u-mt-20">
           <div class="card-header">
             <h3>Category-Level Gaps</h3>
             <p>Minimum-inventory cells (chapter × type × marks × difficulty) below floor.</p>
@@ -653,7 +750,7 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
           </div>
         </div>
 
-        <div class="card u-mt-16">
+        <div class="card u-mt-20">
           <div class="card-header">
             <h3>Gap Export &amp; Reporting</h3>
             <p>Download gap information for question-bank expansion planning.</p>
@@ -701,13 +798,14 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
 
 <script>
 /* ============================================================================
-   myTST Coverage Intelligence — Light Edition
+   myTST Coverage Intelligence — Ferrari Edition
    Single-file, offline-capable. Real PostgreSQL via n8n webhook, local fallback.
    Plain-language labels. SVG charts. Full question listing.
    ============================================================================ */
 (function () {
   'use strict';
 
+  const API_BASE = 'https://n8n.mytst.cloud/webhook/mytst-coverage';
   const USABLE_STATUSES = ['valid', 'approved', 'imported'];
 
   const QT_LABELS = {
@@ -776,7 +874,6 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
   }
 
   function needsReview(r) {
-    // questions that need human review: rejected status, missing answer, or missing cognitive level
     return String(r.status || '').toLowerCase() === 'rejected' ||
            (r.answer == null || String(r.answer).trim() === '') ||
            (r.cognitive_level == null || String(r.cognitive_level).trim() === '');
@@ -785,7 +882,8 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
   const state = {
     rows: [], blueprints: [],
     scope: { board: '', class: '', subject: '', chapter: '' },
-    api: 'local', lastUpdated: null
+    api: 'local', lastUpdated: null,
+    theme: localStorage.getItem('mytst_theme') || 'light'
   };
 
   const SAMPLE_ROWS = [
@@ -834,6 +932,16 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
     }
   ];
 
+  // ---------- theme ----------
+  function applyTheme() {
+    document.documentElement.setAttribute('data-theme', state.theme);
+    localStorage.setItem('mytst_theme', state.theme);
+    const tt = document.getElementById('theme-toggle');
+    if (tt) {
+      // icon swap handled by CSS [data-theme]
+    }
+  }
+
   function normKey(v) { return (v == null ? '' : String(v).trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()); }
   function normEq(a, b) { return normKey(a) === normKey(b); }
   function toInt(v) {
@@ -857,7 +965,7 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
 
   async function loadLive(view, params) {
     const qs = new URLSearchParams(params || {}).toString();
-    const url = '?view=' + encodeURIComponent(view) + (qs ? '&' + qs : '');
+    const url = API_BASE + '?view=' + encodeURIComponent(view) + (qs ? '&' + qs : '');
     const data = await fetchJSON(url);
     return data;
   }
@@ -876,7 +984,7 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
       state.rows = normalizeRows(summary || []);
       state.blueprints = normalizeBlueprints(blueprints || []);
       state.api = 'live';
-      toast('Connected to PostgreSQL', 'success');
+      toast('Connected to PostgreSQL — live data loaded', 'success');
     } catch (e) {
       console.log('Live API unavailable, using local sample data:', e.message);
       state.rows = SAMPLE_ROWS.map(r => ({ ...r, _usable: isUsable(r) }));
@@ -962,49 +1070,46 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
 
   function esc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]); }
 
-  // ---------- SVG bar chart helper ----------
-  function drawBarChart(svgId, data, { width=700, height=260, colors, showValues=true, rotateLabels=false }) {
+  // ---------- SVG bar chart ----------
+  function drawBarChart(svgId, data, { width=700, height=240, colors, showValues=true }) {
     const svg = document.getElementById(svgId);
-    if (!svg || !data || data.length === 0) {
-      if (svg) svg.innerHTML = '';
-      return;
-    }
+    if (!svg) return;
     svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
     svg.setAttribute('preserveAspectRatio', 'none');
     svg.innerHTML = '';
+    if (!data || data.length === 0) return;
 
     const maxVal = Math.max(...data.map(d => d.value), 1);
-    const barWidth = 52;
-    const gap = 24;
-    const topPad = 40;
-    const bottomPad = 52;
-    const leftPad = 10;
-    const rightPad = 10;
-    const chartW = width - leftPad - rightPad;
-    const chartH = height - topPad - bottomPad;
+    const barWidth = 56;
+    const gap = 26;
+    const topPad = 36;
+    const bottomPad = 56;
+    const leftPad = 12;
+    const rightPad = 12;
 
     data.forEach((d, i) => {
       const pct = d.value / maxVal;
-      const barH = Math.max(4, pct * chartH);
+      const barH = Math.max(4, pct * (height - topPad - bottomPad));
       const x = leftPad + i * (barWidth + gap);
       const y = height - bottomPad - barH;
 
-      // bar
       const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       rect.setAttribute('x', x);
       rect.setAttribute('y', y);
       rect.setAttribute('width', barWidth);
       rect.setAttribute('height', barH);
       rect.setAttribute('fill', colors(i));
-      rect.setAttribute('rx', 4);
+      rect.setAttribute('rx', 5);
+      rect.style.opacity = '0';
+      rect.style.transition = 'opacity 0.5s ease';
       svg.appendChild(rect);
+      setTimeout(() => { rect.style.opacity = '1'; }, i * 60);
 
-      // value label above bar
       if (showValues) {
         const valText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
         valText.setAttribute('x', x + barWidth / 2);
-        valText.setAttribute('y', y - 8);
-        valText.setAttribute('fill', varGet('--ink-dim'));
+        valText.setAttribute('y', y - 10);
+        valText.setAttribute('fill', getComputedStyle(document.documentElement).getPropertyValue('--ink-dim').trim());
         valText.setAttribute('font-size', '11');
         valText.setAttribute('font-weight', '700');
         valText.setAttribute('text-anchor', 'middle');
@@ -1012,11 +1117,10 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
         svg.appendChild(valText);
       }
 
-      // x-axis label
       const labelText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
       labelText.setAttribute('x', x + barWidth / 2);
-      labelText.setAttribute('y', height - bottomPad + 16);
-      labelText.setAttribute('fill', varGet('--ink-muted'));
+      labelText.setAttribute('y', height - bottomPad + 18);
+      labelText.setAttribute('fill', getComputedStyle(document.documentElement).getPropertyValue('--ink-muted').trim());
       labelText.setAttribute('font-size', '11');
       labelText.setAttribute('font-weight', '600');
       labelText.setAttribute('text-anchor', 'middle');
@@ -1024,31 +1128,24 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
       svg.appendChild(labelText);
     });
 
-    // axis line
     const axis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
     axis.setAttribute('x1', leftPad); axis.setAttribute('y1', height - bottomPad);
     axis.setAttribute('x2', width - rightPad); axis.setAttribute('y2', height - bottomPad);
-    axis.setAttribute('stroke', varGet('--border-soft')); axis.setAttribute('stroke-width', '1');
+    axis.setAttribute('stroke', getComputedStyle(document.documentElement).getPropertyValue('--border-soft').trim()); axis.setAttribute('stroke-width', '1');
     svg.appendChild(axis);
   }
 
-  function varGet(name) {
-    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  }
-
-  function drawDonutChart(svgId, segments, { width=700, height=260 }) {
+  function drawDonutChart(svgId, segments, { width=700, height=200 }) {
     const svg = document.getElementById(svgId);
-    if (!svg || !segments || segments.length === 0) {
-      if (svg) svg.innerHTML = '';
-      return;
-    }
+    if (!svg) return;
     svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
     svg.setAttribute('preserveAspectRatio', 'none');
     svg.innerHTML = '';
+    if (!segments || segments.length === 0) return;
 
     const total = segments.reduce((a, d) => a + d.value, 0);
-    const cx = width * 0.22, cy = height * 0.55, r = Math.min(width, height) * 0.22;
-    const colors = [varGet('--accent'), varGet('--indigo'), varGet('--cyan'), varGet('--emerald'), varGet('--amber')];
+    const cx = width * 0.22, cy = height * 0.52, r = Math.min(width, height) * 0.2;
+    const colors = ['var(--accent)', 'var(--racing-red)', 'var(--ink-dim)', 'var(--ink-muted)'];
     let start = -90;
 
     segments.forEach((seg, i) => {
@@ -1063,40 +1160,46 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
       const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       const d = `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`;
       path.setAttribute('d', d);
-      path.setAttribute('fill', colors[i % colors.length]);
+      path.setAttribute('fill', getComputedStyle(document.documentElement).getPropertyValue(colors[i % colors.length]).trim());
+      path.style.opacity = '0';
+      path.style.transition = 'opacity 0.6s ease';
       svg.appendChild(path);
+      setTimeout(() => { path.style.opacity = '1'; }, i * 80);
 
       start = end;
     });
 
-    // center text
     const center = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     center.setAttribute('x', cx); center.setAttribute('y', cy + 4);
-    center.setAttribute('fill', varGet('--ink')); center.setAttribute('font-size', '20');
-    center.setAttribute('font-weight', '800'); center.setAttribute('text-anchor', 'middle');
+    center.setAttribute('fill', getComputedStyle(document.documentElement).getPropertyValue('--ink').trim());
+    center.setAttribute('font-size', '22');
+    center.setAttribute('font-weight', '800');
+    center.setAttribute('text-anchor', 'middle');
     center.textContent = total;
     svg.appendChild(center);
 
     const sub = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    sub.setAttribute('x', cx); sub.setAttribute('y', cy + 24);
-    sub.setAttribute('fill', varGet('--ink-muted')); sub.setAttribute('font-size', '11');
-    sub.setAttribute('font-weight', '700'); sub.setAttribute('text-anchor', 'middle');
+    sub.setAttribute('x', cx); sub.setAttribute('y', cy + 26);
+    sub.setAttribute('fill', getComputedStyle(document.documentElement).getPropertyValue('--ink-muted').trim());
+    sub.setAttribute('font-size', '11');
+    sub.setAttribute('font-weight', '700');
+    sub.setAttribute('text-anchor', 'middle');
     sub.textContent = 'total items';
     svg.appendChild(sub);
 
-    // legend
     const legend = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    legend.setAttribute('transform', `translate(${width * 0.55}, ${height * 0.15})`);
+    legend.setAttribute('transform', `translate(${width * 0.55}, ${height * 0.12})`);
     segments.forEach((seg, i) => {
       const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-      g.setAttribute('transform', `translate(0, ${i * 22})`);
+      g.setAttribute('transform', `translate(0, ${i * 24})`);
       const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
       dot.setAttribute('cx', 0); dot.setAttribute('cy', 0); dot.setAttribute('r', 5);
-      dot.setAttribute('fill', colors[i % colors.length]);
+      dot.setAttribute('fill', getComputedStyle(document.documentElement).getPropertyValue(colors[i % colors.length]).trim());
       g.appendChild(dot);
       const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
       txt.setAttribute('x', 12); txt.setAttribute('y', 4);
-      txt.setAttribute('fill', varGet('--ink-muted')); txt.setAttribute('font-size', '11');
+      txt.setAttribute('fill', getComputedStyle(document.documentElement).getPropertyValue('--ink-muted').trim());
+      txt.setAttribute('font-size', '11');
       txt.setAttribute('font-weight', '600');
       txt.textContent = seg.label + ' (' + seg.value + ')';
       g.appendChild(txt);
@@ -1125,16 +1228,15 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
     let passing = 0, below = 0;
     Object.values(chMap).forEach(c => { if (c.usable >= 3) passing++; else below++; });
 
-    // stat cards
     const stats = [
       { label: 'Total Records', value: total, sub: 'question_versions rows', spark: [12, 18, 15, 22, 28, 24, 31, total], color: 'var(--accent)' },
-      { label: 'Eligible Questions', value: usable.length, sub: 'passing status + answer present', spark: [8, 11, 9, 14, 19, 16, 21, usable.length], color: 'var(--emerald)' },
-      { label: 'Staged (Unused)', value: staged, sub: 'eligible, times_used = 0', spark: [4, 6, 5, 8, 10, 9, 12, staged], color: 'var(--cyan)' },
-      { label: 'For Review', value: review, sub: 'rejected / missing answer / missing cognitive', spark: [2, 3, 2, 1, 2, 1, 1, review], color: review > 0 ? 'var(--rose)' : 'var(--emerald)' },
-      { label: 'Subjects', value: subjects.length, sub: 'distinct subject codes', spark: [2, 3, 3, 4, 5, 4, 6, subjects.length], color: 'var(--indigo)' },
-      { label: 'Chapters', value: chapters.length, sub: 'distinct chapter codes', spark: [5, 7, 6, 9, 11, 10, 13, chapters.length], color: 'var(--amber)' },
-      { label: 'Passing Floor', value: passing, sub: '≥3 eligible per chapter', spark: [2, 3, 3, 4, 5, 5, 6, passing], color: passing > 0 ? 'var(--emerald)' : 'var(--rose)' },
-      { label: 'Below Floor', value: below, sub: '<3 eligible per chapter', spark: [4, 3, 4, 2, 1, 2, 1, below], color: below > 0 ? 'var(--amber)' : 'var(--emerald)' }
+      { label: 'Eligible Questions', value: usable.length, sub: 'passing status + answer present', spark: [8, 11, 9, 14, 19, 16, 21, usable.length], color: 'var(--accent)' },
+      { label: 'Staged (Unused)', value: staged, sub: 'eligible, times_used = 0', spark: [4, 6, 5, 8, 10, 9, 12, staged], color: 'var(--ink-dim)' },
+      { label: 'For Review', value: review, sub: 'rejected / missing answer / missing cognitive', spark: [2, 3, 2, 1, 2, 1, 1, review], color: review > 0 ? 'var(--racing-red)' : 'var(--ink-dim)' },
+      { label: 'Subjects', value: subjects.length, sub: 'distinct subject codes', spark: [2, 3, 3, 4, 5, 4, 6, subjects.length], color: 'var(--ink-dim)' },
+      { label: 'Chapters', value: chapters.length, sub: 'distinct chapter codes', spark: [5, 7, 6, 9, 11, 10, 13, chapters.length], color: 'var(--ink-dim)' },
+      { label: 'Passing Floor', value: passing, sub: '≥3 eligible per chapter', spark: [2, 3, 3, 4, 5, 5, 6, passing], color: passing > 0 ? 'var(--accent)' : 'var(--racing-red)' },
+      { label: 'Below Floor', value: below, sub: '<3 eligible per chapter', spark: [4, 3, 4, 2, 1, 2, 1, below], color: below > 0 ? 'var(--racing-red)' : 'var(--accent)' }
     ];
 
     const el = document.getElementById('overview-stats');
@@ -1143,11 +1245,11 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
         <div class="label">${esc(st.label)}<span style="font-weight:700;color:var(--ink-dim);font-size:0.62rem;margin-left:8px;">${esc(st.sub)}</span></div>
         <div class="value count-animate" data-value="${st.value}">0</div>
         <div class="sub">${esc(st.sub)}</div>
-        <div class="mini" style="margin-top:10px;">
+        <div class="mini" style="margin-top:12px;">
           <div class="spark">${st.spark.map((v, j) => {
             const pct = j === st.spark.length - 1 ? 100 : (v / Math.max(...st.spark)) * 100;
-            const h = Math.max(6, pct / 100 * 18);
-            return '<div class="bar" style="height:' + h + 'px;background:' + (j === st.spark.length - 1 ? 'var(--accent)' : 'var(--border-soft)') + ';"></div>';
+            const h = Math.max(6, pct / 100 * 20);
+            return '<div class="bar" style="height:' + h + 'px;background:' + (j === st.spark.length - 1 ? 'var(--accent-hover)' : 'var(--border-soft)') + ';"></div>';
           }).join('')}</div>
           <span class="trend" style="color:${st.color};font-weight:800;">${st.value}</span>
         </div>
@@ -1161,22 +1263,21 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
       });
     }, 100);
 
-    // charts
-    // Type distribution
+    // Type distribution chart
     const typeCounts = {};
     rows.forEach(r => { const t = qtFullName(r.question_type); typeCounts[t] = (typeCounts[t] || 0) + 1; });
     const typeData = Object.entries(typeCounts).map(([label, value]) => ({ label, value })).sort((a,b)=>b.value-a.value);
     drawBarChart('chart-type', typeData, {
-      colors: i => ['var(--accent)', 'var(--indigo)', 'var(--cyan)', 'var(--emerald)', 'var(--amber)', 'var(--rose)'][i % 6]
+      colors: i => getComputedStyle(document.documentElement).getPropertyValue(['var(--accent)', 'var(--racing-red)', 'var(--ink-dim)', 'var(--ink-muted)', 'var(--accent)', 'var(--racing-red)'][i % 6]).trim()
     });
     document.getElementById('qtype-count-badge').textContent = typeData.length + ' types';
 
-    // Difficulty distribution
+    // Difficulty distribution chart
     const diffCounts = {};
     rows.forEach(r => { const d = diffFullName(r.difficulty); diffCounts[d] = (diffCounts[d] || 0) + 1; });
     const diffData = Object.entries(diffCounts).map(([label, value]) => ({ label, value })).sort((a,b)=>b.value-a.value);
     drawBarChart('chart-difficulty', diffData, {
-      colors: i => ['var(--emerald)', 'var(--amber)', 'var(--rose)'][i % 3]
+      colors: i => getComputedStyle(document.documentElement).getPropertyValue(['var(--accent)', 'var(--racing-red)', 'var(--ink-dim)'][i % 3]).trim()
     });
 
     // Eligibility donut
@@ -1191,7 +1292,7 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
     const tbody = document.getElementById('subject-table-body');
     document.getElementById('subject-count-badge').textContent = subjects.length + ' subjects';
     if (subjects.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--ink-muted);padding:28px;">No subjects in scope.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--ink-muted);padding:30px;">No subjects in scope.</td></tr>';
     } else {
       tbody.innerHTML = subjects.map(subj => {
         const srows = rows.filter(r => normEq(r.subject_code, subj));
@@ -1205,7 +1306,7 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
         const cov = schaps.length ? Math.round(100 * spass / schaps.length) : 0;
         return `
           <tr class="interactive" onclick="app.filterBy('subject', '${esc(subj)}')">
-            <td>${esc(subj)}</td><td style="font-family:ui-monospace,monospace;font-size:0.8rem;color:var(--ink-dim);">${esc(subj)}</td>
+            <td>${esc(subj)}</td><td class="mono" style="font-size:0.8rem;color:var(--ink-dim);">${esc(subj)}</td>
             <td>${susable.length}</td><td>${schaps.length}</td>
             <td><span class="badge ok">${spass}</span></td>
             <td><span class="badge ${sbelow > 0 ? 'warn' : 'ok'}">${sbelow}</span></td>
@@ -1233,21 +1334,19 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
     empty.style.display = 'none';
     badge.textContent = rows.length + ' questions';
 
-    // Full table of all questions
+    // Full table
     tableBody.innerHTML = rows.map((r, i) => {
       const usable = r._usable || isUsable(r);
-      const review = needsReview(r);
-      const staged = usable && (r.times_used == null || r.times_used === 0);
       const typeName = qtFullName(r.question_type);
       const diffName = diffFullName(r.difficulty);
       const cogName = cogFullName(r.cognitive_level);
       return `
-        <tr class="interactive" style="animation-delay:${i * 20}ms">
-          <td style="font-family:ui-monospace,monospace;font-size:0.8rem;color:var(--ink-dim);font-weight:600;">${esc(r.question_id)}</td>
+        <tr class="interactive" style="animation-delay:${i * 15}ms">
+          <td class="mono" style="font-size:0.8rem;color:var(--ink-dim);font-weight:600;">${esc(r.question_id)}</td>
           <td>${esc(r.board)}</td>
           <td>${esc(r.class)}</td>
           <td>${esc(r.subject_code)}</td>
-          <td>${esc(r.chapter)} <span style="font-size:0.75rem;color:var(--ink-dim);font-family:ui-monospace,monospace">(${esc(r.chapter_code)})</span></td>
+          <td>${esc(r.chapter)} <span style="font-size:0.75rem;color:var(--ink-dim);font-family:'JetBrains Mono',monospace">(${esc(r.chapter_code)})</span></td>
           <td>${esc(s(r.topic) || '—')}</td>
           <td>${esc(s(r.subtopic) || '—')}</td>
           <td><span class="chip type">${esc(typeName)}</span></td>
@@ -1257,7 +1356,7 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
           <td><span class="badge ${String(r.status).toLowerCase() === 'rejected' ? 'err' : 'ok'}">${esc(r.status)}</span></td>
           <td><span class="chip cog">${esc(cogName)}</span></td>
           <td><span class="badge ${usable ? 'ok' : 'warn'}">${usable ? 'Yes' : 'No'}</span></td>
-          <td style="font-family:ui-monospace,monospace;font-size:0.8rem;color:var(--ink-dim);">${r.times_used == null ? '—' : r.times_used}</td>
+          <td class="mono" style="font-size:0.8rem;color:var(--ink-dim);">${r.times_used == null ? '—' : r.times_used}</td>
         </tr>
       `;
     }).join('');
@@ -1293,7 +1392,7 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
         const chUsable = chRows.filter(r => r._usable || isUsable(r)).length;
         html += '<div class="level-wrap" style="border:none;background:transparent;margin:0 14px;">';
         html += '<div class="level-header" onclick="app.toggleLevel(this)" style="background:transparent;border:none;padding-left:34px;">';
-        html += '<span class="title">Chapter <span class="badge neutral">' + esc(chData.chapter || ch) + '</span> <span style="font-size:0.75rem;color:var(--ink-dim);font-family:ui-monospace,monospace">(' + esc(ch) + ')</span></span>';
+        html += '<span class="title">Chapter <span class="badge neutral">' + esc(chData.chapter || ch) + '</span> <span style="font-size:0.75rem;color:var(--ink-dim);font-family:\'JetBrains Mono\',monospace">(' + esc(ch) + ')</span></span>';
         html += '<span class="count">' + chRows.length + ' · ' + chUsable + ' usable</span>';
         html += '<div class="chevron"></div></div><div class="level-body collapsed">';
         Object.keys(chData.topics).sort().forEach(topic => {
@@ -1351,7 +1450,7 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
       const marks = slots.reduce((a, s) => a + (s.marks || 0), 0);
       return `
         <tr class="interactive" onclick="app.openBlueprint('${esc(bp.blueprint_id)}')" style="animation-delay:${i * 60}ms">
-          <td><span style="font-family:ui-monospace,monospace;font-size:0.8rem;color:var(--ink-dim);">${esc(bp.blueprint_id)}</span></td>
+          <td class="mono" style="font-size:0.8rem;color:var(--ink-dim);">${esc(bp.blueprint_id)}</td>
           <td><span class="badge accent">${esc(bp.schema_version)}</span></td>
           <td>${esc(String(bp.subject_id || '—'))}</td>
           <td>${slots.length}</td>
@@ -1370,32 +1469,32 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
     const slots = bp.slots || [];
     const sections = [...new Set(slots.map(s => s.section))];
     let html = '';
-    html += '<div style="margin-bottom:16px;"><span class="badge accent" style="font-size:0.8rem;">' + esc(bp.schema_version) + '</span> ';
+    html += '<div style="margin-bottom:18px;"><span class="badge accent" style="font-size:0.8rem;">' + esc(bp.schema_version) + '</span> ';
     const parts = bp.blueprint_id.split('-C');
     html += '<span class="badge neutral" style="font-size:0.8rem;">' + esc(parts[0]) + ' · Class ' + esc(parts[1]?.split('-')[0] || '?') + '</span>';
     html += '<span class="badge neutral" style="font-size:0.8rem;">' + slots.length + ' slots · ' + slots.reduce((a, s) => a + (s.marks || 0), 0) + ' marks</span></div>';
-    html += '<h4 style="font-size:0.9rem;margin-bottom:12px;color:var(--ink-muted);text-transform:uppercase;letter-spacing:0.5px;">Slot Structure</h4>';
+    html += '<h4 style="font-size:0.92rem;margin-bottom:14px;color:var(--ink-muted);text-transform:uppercase;letter-spacing:0.5px;">Slot Structure</h4>';
     sections.forEach(sec => {
       const ssec = slots.filter(s => s.section === sec);
-      html += '<div style="margin-bottom:14px;"><div style="font-weight:800;color:var(--ink);margin-bottom:10px;">Section ' + esc(sec) + ' · ' + ssec.length + ' slots · ' + ssec.reduce((a, s) => a + (s.marks || 0), 0) + ' marks</div>';
+      html += '<div style="margin-bottom:16px;"><div style="font-weight:700;color:var(--ink);margin-bottom:12px;">Section ' + esc(sec) + ' · ' + ssec.length + ' slots · ' + ssec.reduce((a, s) => a + (s.marks || 0), 0) + ' marks</div>';
       html += '<div class="slot-table-wrap"><div class="slot-row head"><div>Slot</div><div>Chapter / Topic / Subtopic</div><div>Type</div><div>Marks</div><div>Difficulty</div><div>Cognitive</div><div>Subtopic ID</div></div>';
       ssec.forEach(sl => {
         html += '<div class="slot-row">';
         html += '<div class="slot-id">' + esc(sl.slot_id) + '</div>';
-        html += '<div style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + esc((sl.chapter || '') + ' / ' + (sl.topic || '') + ' / ' + (sl.subtopic || '')) + '">' + esc(sl.chapter || '—') + ' / ' + esc(sl.topic || '—') + ' / ' + esc(sl.subtopic || '—') + '</div>';
+        html += '<div style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + esc((sl.chapter || '') + ' / ' + (sl.topic || '') + ' / ' + (sl.subtopic || '')) + '">' + esc(sl.chapter || '—') + ' / ' + esc(sl.topic || '—') + ' / ' + esc(sl.subtopic || '—') + '</div>';
         html += '<div><span class="chip type">' + esc(qtFullName(sl.question_type)) + '</span></div>';
         html += '<div><span class="chip marks">' + esc(sl.marks) + 'm</span></div>';
         html += '<div><span class="chip diff">' + esc(diffFullName(sl.difficulty)) + '</span></div>';
         html += '<div><span class="chip cog">' + esc((sl.cognitive && cogFullName(sl.cognitive)) || '—') + '</span></div>';
-        html += '<div style="font-family:ui-monospace,monospace;font-size:0.72rem;color:var(--ink-dim);">' + esc(sl.subtopic_id || '—') + '</div>';
+        html += '<div class="mono" style="font-size:0.72rem;color:var(--ink-dim);">' + esc(sl.subtopic_id || '—') + '</div>';
         html += '</div>';
       });
       html += '</div></div>';
     });
-    html += '<h4 style="font-size:0.9rem;margin-top:18px;margin-bottom:12px;color:var(--ink-muted);text-transform:uppercase;letter-spacing:0.5px;">Fulfilment vs Bank</h4>';
+    html += '<h4 style="font-size:0.92rem;margin-top:20px;margin-bottom:14px;color:var(--ink-muted);text-transform:uppercase;letter-spacing:0.5px;">Fulfilment vs Bank</h4>';
     const scope = state.scope;
     const bankRows = scopeRows(state.rows, scope);
-    html += '<table class="data" style="margin-top:8px;"><thead><tr><th>Slot</th><th>Requirement</th><th>Eligible in Bank</th><th>Status</th></tr></thead><tbody>';
+    html += '<table class="data" style="margin-top:10px;"><thead><tr><th>Slot</th><th>Requirement</th><th>Eligible in Bank</th><th>Status</th></tr></thead><tbody>';
     slots.forEach(sl => {
       const matches = bankRows.filter(r => {
         if (sl.chapter_code && r.chapter_code && !normEq(r.chapter_code, sl.chapter_code)) return false;
@@ -1408,7 +1507,7 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
       const usable = matches.filter(r => r._usable || isUsable(r)).length;
       const status = usable === 0 ? 'missing' : usable >= 1 ? 'available' : 'partial';
       html += '<tr>';
-      html += '<td style="font-family:ui-monospace,monospace;font-size:0.78rem;color:var(--ink-dim);">' + esc(sl.slot_id) + '</td>';
+      html += '<td class="mono" style="font-size:0.78rem;color:var(--ink-dim);">' + esc(sl.slot_id) + '</td>';
       html += '<td>' + esc(qtFullName(sl.question_type)) + ' · ' + esc(sl.marks) + 'm · ' + esc(diffFullName(sl.difficulty)) + '</td>';
       html += '<td>' + usable + '</td>';
       html += '<td><span class="badge ' + (status === 'available' ? 'ok' : status === 'missing' ? 'err' : 'warn') + '">' + esc(status) + '</span></td>';
@@ -1432,7 +1531,7 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
     const tbody = document.getElementById('gap-table-body');
     const chList = Object.values(chMap).sort((a, b) => b.eligible - a.eligible);
     if (chList.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--ink-muted);padding:28px;">No chapters in scope.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--ink-muted);padding:30px;">No chapters in scope.</td></tr>';
     } else {
       tbody.innerHTML = chList.map((c, i) => {
         const target = 3;
@@ -1441,7 +1540,7 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
         const status = c.eligible >= target ? 'meets' : 'below';
         return `
           <tr class="interactive" onclick="app.filterBy('chapter', '${esc(c.code)}')" style="animation-delay:${i * 50}ms">
-            <td>${esc(c.chapter)}</td><td style="font-family:ui-monospace,monospace;font-size:0.8rem;color:var(--ink-dim);">${esc(c.code)}</td>
+            <td>${esc(c.chapter)}</td><td class="mono" style="font-size:0.8rem;color:var(--ink-dim);">${esc(c.code)}</td>
             <td>${target}</td><td>${c.eligible}</td><td>${missing}</td>
             <td>${cov}%</td>
             <td><span class="badge ${status === 'meets' ? 'ok' : 'warn'}">${status === 'meets' ? 'PASS' : 'BELOW MINIMUM'}</span></td>
@@ -1475,13 +1574,13 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
     catList.sort((a, b) => b.deficit - a.deficit);
 
     if (catList.length === 0) {
-      catBody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--ink-muted);padding:28px;">No category gaps below floor.</td></tr>';
+      catBody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--ink-muted);padding:30px;">No category gaps below floor.</td></tr>';
     } else {
       catBody.innerHTML = catList.map((c, i) => `
         <tr style="animation-delay:${i * 50}ms">
           <td>${esc(c.chapter)}</td><td>${esc(c.type)}</td><td>${esc(c.marks)}</td><td>${esc(c.difficulty)}</td>
           <td>${c.target}</td><td>${c.eligible}</td>
-          <td style="color:var(--rose);font-weight:900;">+${c.deficit}</td>
+          <td style="color:var(--racing-red);font-weight:800;">+${c.deficit}</td>
           <td>${c.coverage}%</td>
         </tr>
       `).join('');
@@ -1721,7 +1820,7 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
     const el = document.createElement('div');
     el.className = 'toast';
     const icons = { success: '✓', warning: '⚠', info: 'ℹ', error: '✕' };
-    const colors = { success: 'var(--emerald)', warning: 'var(--amber)', info: 'var(--accent)', error: 'var(--rose)' };
+    const colors = { success: 'var(--accent)', warning: 'var(--racing-red)', info: 'var(--accent)', error: 'var(--racing-red)' };
     el.style.borderLeftColor = colors[type] || colors.info;
     el.innerHTML = '<span class="icon" style="color:' + (colors[type] || colors.info) + '">' + (icons[type] || icons.info) + '</span>' + esc(message);
     container.appendChild(el);
@@ -1736,15 +1835,15 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
     const el = document.getElementById('api-status');
     if (online) {
       el.className = 'live-indicator';
-      el.innerHTML = '<span class="dot"></span> Live — PostgreSQL';
+      el.innerHTML = '<span class="dot"></span> Connected — PostgreSQL';
     } else {
       el.className = 'live-indicator';
       el.innerHTML = '<span class="dot"></span> Offline — Sample Data';
-      el.style.background = 'rgba(217,119,6,0.12)';
-      el.style.borderColor = 'rgba(217,119,6,0.25)';
-      el.style.color = 'var(--amber)';
-      el.querySelector('.dot').style.background = 'var(--amber)';
-      el.querySelector('.dot').style.boxShadow = '0 0 10px var(--amber-glow)';
+      el.style.background = 'rgba(255, 40, 0, 0.08)';
+      el.style.borderColor = 'rgba(255, 40, 0, 0.25)';
+      el.style.color = 'var(--racing-red)';
+      el.querySelector('.dot').style.background = 'var(--racing-red)';
+      el.querySelector('.dot').style.boxShadow = '0 0 12px rgba(255,40,0,0.6)';
     }
   }
 
@@ -1839,10 +1938,16 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
     document.getElementById('overlay').classList.remove('open');
     closeDrawer();
   });
+  document.getElementById('theme-toggle').addEventListener('click', () => {
+    state.theme = state.theme === 'light' ? 'dark' : 'light';
+    applyTheme();
+    toast(state.theme === 'dark' ? 'Dark mode engaged' : 'Light mode engaged', 'info');
+  });
   document.getElementById('refresh-btn').addEventListener('click', async () => {
     const btn = document.getElementById('refresh-btn');
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Refreshing…';
+    btn.classList.add('loading');
+    btn.innerHTML = '';
     try {
       await loadData();
       initFilters();
@@ -1855,6 +1960,7 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
       toast('Refresh failed — showing last known data', 'error');
     } finally {
       btn.disabled = false;
+      btn.classList.remove('loading');
       btn.innerHTML = '↻ Refresh';
     }
   });
@@ -1864,6 +1970,8 @@ table.data tr.interactive:hover { background: rgba(67,56,202,0.08); transform: t
     if (document.getElementById(id)) showSection(id);
   });
 
+  // kick off
+  applyTheme();
   loadData().then(() => {
     initFilters();
     renderAll();
