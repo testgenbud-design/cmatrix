@@ -4,59 +4,63 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>myTST Coverage Intelligence</title>
-<!-- System fonts only: Times New Roman for UI + data, no external font dependencies -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 /* ============================================================================
-   myTST Coverage Intelligence — Slate Edition
+   myTST Coverage Intelligence — Ferrari Edition
    Design skills applied:
    - taste-skill: minimalist-ui, high-end-visual-design, design-taste-frontend
    - impeccable: shape, document, typeset, layout, adapt, harden, polish
    - emilkowalski/skills: mobile-native, animation-performance, break-ui, pick-ui-library
    
-   Identity: Deep slate, refined indigo, clean parchment.
-   Professional, readable, calm — Times New Roman throughout.
+   Identity: Rosso Corsa red, deep carbon black, polished chrome.
+   Premium automotive feel — fast, refined, confident.
    ============================================================================ */
 
 :root {
   /* Light mode */
-  --bg: #f4f6f8;
+  --bg: #f8f9fa;
   --panel: #ffffff;
-  --panel-elev: #eef1f4;
-  --border: #c9d2da;
-  --border-soft: #e4e9ee;
-  --ink: #1a2530;
-  --ink-muted: #5b6b79;
-  --ink-dim: #8b97a3;
-  --accent: #2563eb;
-  --accent-glow: rgba(37, 99, 235, 0.15);
-  --accent-hover: #1d4ed8;
-  --slate: #334155;
-  --slate-elev: #475569;
-  --shadow: 0 1px 3px rgba(26, 37, 48, 0.08), 0 0 1px rgba(26, 37, 48, 0.05);
-  --shadow-md: 0 4px 12px rgba(26, 37, 48, 0.06);
-  --shadow-lg: 0 10px 30px rgba(26, 37, 48, 0.05);
+  --panel-elev: #f1f3f5;
+  --border: #e9ecef;
+  --border-soft: #f8f9fa;
+  --ink: #111827;
+  --ink-muted: #6b7280;
+  --ink-dim: #9ca3af;
+  --accent: #dc0000;
+  --accent-glow: rgba(220, 0, 0, 0.15);
+  --accent-hover: #b00000;
+  --racing-red: #ff2800;
+  --carbon: #0a0a0a;
+  --carbon-elev: #141414;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 0 1px rgba(0,0,0,0.05);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
+  --shadow-lg: 0 10px 30px rgba(0,0,0,0.05);
   --trans: 300ms cubic-bezier(0.23, 1, 0.32, 1);
   --trans-fast: 150ms cubic-bezier(0.16, 1, 0.3, 1);
-  --radius: 12px;
-  --radius-sm: 8px;
+  --radius: 14px;
+  --radius-sm: 10px;
   --max-width: 1400px;
 }
 
 [data-theme="dark"] {
   /* Dark mode */
-  --bg: #0f172a;
-  --panel: #1e293b;
-  --panel-elev: #334155;
-  --border: #334155;
-  --border-soft: #26323f;
-  --ink: #f1f5f9;
-  --ink-muted: #94a3b8;
-  --ink-dim: #64748b;
-  --accent: #3b82f6;
-  --accent-glow: rgba(59, 130, 246, 0.25);
-  --accent-hover: #60a5fa;
-  --slate: #94a3b8;
-  --slate-elev: #cbd5e1;
+  --bg: #050505;
+  --panel: #0a0a0a;
+  --panel-elev: #111111;
+  --border: #1a1a1a;
+  --border-soft: #0f0f0f;
+  --ink: #f5f5f5;
+  --ink-muted: #a1a1aa;
+  --ink-dim: #71717a;
+  --accent: #ff2800;
+  --accent-glow: rgba(255, 40, 0, 0.25);
+  --accent-hover: #ff4530;
+  --racing-red: #ff3b30;
+  --carbon: #000000;
+  --carbon-elev: #0a0a0a;
   --shadow: 0 1px 3px rgba(0,0,0,0.4), 0 0 1px rgba(0,0,0,0.3);
   --shadow-md: 0 4px 12px rgba(0,0,0,0.5);
   --shadow-lg: 0 10px 30px rgba(0,0,0,0.6);
@@ -68,7 +72,7 @@ html { font-size: 16px; scroll-behavior: smooth; }
 body {
   background: var(--bg);
   color: var(--ink);
-  font-family: 'Times New Roman', Times, 'DejaVu Serif', serif;
+  font-family: 'Outfit', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   font-size: 0.9375rem;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
@@ -76,10 +80,10 @@ body {
   transition: background-color 0.4s ease, color 0.4s ease;
 }
 
-h1, h2, h3, h4 { font-weight: 700; letter-spacing: -0.01em; color: var(--ink); }
-h1, h2 { font-weight: 700; }
+h1, h2, h3, h4 { font-weight: 700; letter-spacing: -0.02em; color: var(--ink); }
+h1, h2 { font-weight: 800; }
 p { color: var(--ink-muted); }
-.mono { font-family: 'Times New Roman', Times, 'DejaVu Serif', serif; }
+.mono { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; }
 
 a { color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent; }
 a:hover { color: var(--accent-hover); border-bottom-color: var(--accent); }
@@ -428,7 +432,7 @@ table.data tr.interactive:active { transform: translateX(0); }
 .slot-row.head { background: var(--panel-elev); font-size: 0.68rem; font-weight: 800; text-transform: uppercase; color: var(--ink-dim); border-bottom: 1px solid var(--border); letter-spacing: 0.4px; }
 .slot-row:last-child { border-bottom: none; }
 .slot-row:hover { background: rgba(220,0,0,0.03); }
-.slot-row .slot-id { font-family: 'Times New Roman', Times, monospace; font-size: 0.76rem; color: var(--ink-dim); }
+.slot-row .slot-id { font-family: 'JetBrains Mono', monospace; font-size: 0.76rem; color: var(--ink-dim); }
 
 /* ---------- drawer ---------- */
 .overlay {
@@ -999,17 +1003,29 @@ table.data tr.interactive:active { transform: translateX(0); }
     return data;
   }
 
+  // n8n wraps every response as { view, filters, counts, data: { [viewName]: [...] } }
+  // Unwrap to the raw array the rest of the page expects.
+  function unwrap(resp, viewName) {
+    if (!resp || typeof resp !== 'object') return resp;
+    if (resp.data && resp.data[viewName] != null) return resp.data[viewName];
+    if (Array.isArray(resp)) return resp;
+    return resp;
+  }
+
   async function loadData() {
     try {
-      const probe = await loadLive('db_probe');
+      const probeResp = await loadLive('db_probe');
+      const probe = unwrap(probeResp, 'db_probe');
       const row = probe && probe[0] ? probe[0] : {};
       if (row.has_question_versions === false || String(row.qv_columns || '').includes('no question_versions')) {
         throw new Error('no question_versions table');
       }
-      const [summary, blueprints] = await Promise.all([
+      const [summaryResp, blueprintsResp] = await Promise.all([
         loadLive('summary', {}),
         loadLive('blueprints', {})
       ]);
+      const summary = unwrap(summaryResp, 'summary');
+      const blueprints = unwrap(blueprintsResp, 'blueprints');
       state.rows = normalizeRows(summary || []);
       state.blueprints = normalizeBlueprints(blueprints || []);
       state.api = 'live';
@@ -1036,7 +1052,22 @@ table.data tr.interactive:active { transform: translateX(0); }
   }
 
   function normalizeBlueprintObj(bp) {
-    const matrix = bp.matrix || {};
+    // n8n returns matrix/chapter_pool/rules as JSON strings (::text cast). Parse them.
+    let matrix = bp.matrix;
+    if (typeof matrix === 'string') {
+      try { matrix = JSON.parse(matrix); } catch (e) { matrix = {}; }
+    }
+    if (!matrix || typeof matrix !== 'object') matrix = {};
+    let chapter_pool = bp.chapter_pool;
+    if (typeof chapter_pool === 'string') {
+      try { chapter_pool = JSON.parse(chapter_pool); } catch (e) { chapter_pool = []; }
+    }
+    if (!Array.isArray(chapter_pool)) chapter_pool = [];
+    let rules = bp.rules;
+    if (typeof rules === 'string') {
+      try { rules = JSON.parse(rules); } catch (e) { rules = {}; }
+    }
+    if (!rules || typeof rules !== 'object') rules = {};
     const slots = [];
     if (matrix && matrix.sections && Array.isArray(matrix.sections)) {
       matrix.sections.forEach(sec => {
@@ -1054,7 +1085,7 @@ table.data tr.interactive:active { transform: translateX(0); }
     return {
       blueprint_id: bp.blueprint_id, schema_version: bp.schema_version,
       subject_id: bp.subject_id, slots: slots,
-      chapter_pool: bp.chapter_pool || [], rules: bp.rules || {},
+      chapter_pool: chapter_pool, rules: rules,
       totals: { marks: slots.reduce((a, s) => a + (s.marks || 0), 0), slots: slots.length }
     };
   }
@@ -1375,7 +1406,7 @@ table.data tr.interactive:active { transform: translateX(0); }
           <td>${esc(r.board)}</td>
           <td>${esc(r.class)}</td>
           <td>${esc(r.subject_code)}</td>
-          <td>${esc(r.chapter)} <span style="font-size:0.75rem;color:var(--ink-dim);font-family:'Times New Roman',Times,monospace">(${esc(r.chapter_code)})</span></td>
+          <td>${esc(r.chapter)} <span style="font-size:0.75rem;color:var(--ink-dim);font-family:'JetBrains Mono',monospace">(${esc(r.chapter_code)})</span></td>
           <td>${esc(s(r.topic) || '—')}</td>
           <td>${esc(s(r.subtopic) || '—')}</td>
           <td><span class="chip type">${esc(typeName)}</span></td>
@@ -1421,7 +1452,7 @@ table.data tr.interactive:active { transform: translateX(0); }
         const chUsable = chRows.filter(r => r._usable || isUsable(r)).length;
         html += '<div class="level-wrap" style="border:none;background:transparent;margin:0 14px;">';
         html += '<div class="level-header" onclick="app.toggleLevel(this)" style="background:transparent;border:none;padding-left:34px;">';
-        html += '<span class="title">Chapter <span class="badge neutral">' + esc(chData.chapter || ch) + '</span> <span style="font-size:0.75rem;color:var(--ink-dim);font-family:'Times New Roman',Times,monospace">(' + esc(ch) + ')</span></span>';
+        html += '<span class="title">Chapter <span class="badge neutral">' + esc(chData.chapter || ch) + '</span> <span style="font-size:0.75rem;color:var(--ink-dim);font-family:'JetBrains Mono',monospace">(' + esc(ch) + ')</span></span>';
         html += '<span class="count">' + chRows.length + ' · ' + chUsable + ' usable</span>';
         html += '<div class="chevron"></div></div><div class="level-body collapsed">';
         Object.keys(chData.topics).sort().forEach(topic => {
